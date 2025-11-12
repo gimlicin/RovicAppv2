@@ -8,7 +8,17 @@ import { CartProvider } from './contexts/CartContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
-import { route } from 'ziggy-js';
+// Import route function - will be provided by Laravel Ziggy
+declare global {
+    interface Window {
+        route: any;
+    }
+}
+
+const route = (window as any).route || ((name: string, params?: any) => {
+    console.warn('Ziggy route helper not loaded, using fallback for:', name);
+    return name;
+});
 
 // Configure axios to include CSRF token
 (window as any).axios = axios;
