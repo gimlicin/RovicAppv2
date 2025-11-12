@@ -55,6 +55,16 @@ RUN npm run build
 RUN cp .env.example .env || true
 RUN php artisan key:generate --force --no-interaction
 
+# Create database setup script
+RUN echo '#!/bin/bash\n\
+echo "Setting up database..."\n\
+php artisan migrate --force || echo "Migration failed, continuing..."\n\
+php artisan db:seed --force || echo "Seeding failed, continuing..."\n\
+php artisan storage:link || echo "Storage link failed, continuing..."\n\
+php artisan config:cache || echo "Config cache failed, continuing..."\n\
+echo "Database setup completed"\n\
+' > /var/www/html/setup-db.sh && chmod +x /var/www/html/setup-db.sh
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
@@ -91,5 +101,9 @@ autorestart=true' > /etc/supervisor/conf.d/supervisord.conf
 # Expose port
 EXPOSE $PORT
 
-# Start supervisor
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Copy and set up startup script
+COPY start.sh /var/www/html/start.sh
+RUN chmod +x /var/www/html/start.sh
+
+# Start with our custom startup script
+CMD ["/var/www/html/start.sh"]
