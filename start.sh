@@ -17,6 +17,10 @@ else
     echo "No DATABASE_URL found, skipping database setup"
 fi
 
+# Configure nginx with proper PORT
+echo "Configuring nginx for port $PORT..."
+sed -i "s/listen 80/listen $PORT/g" /etc/nginx/sites-available/default
+
 # Start supervisor to run nginx + php-fpm
 echo "Starting web services..."
 exec supervisord -c /etc/supervisor/conf.d/supervisord.conf

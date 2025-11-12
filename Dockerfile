@@ -71,9 +71,9 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache
 
-# Create nginx config
+# Create nginx config template
 RUN echo 'server { \
-    listen $PORT default_server; \
+    listen 80 default_server; \
     root /var/www/html/public; \
     index index.php; \
     location / { \
