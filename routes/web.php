@@ -116,6 +116,43 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 
+// EMERGENCY DEBUG ROUTES - REMOVE AFTER FIXING
+Route::get('/debug-db', function() {
+    try {
+        // Test database connection
+        $result = DB::select('SELECT 1 as test');
+        
+        // Test orders table structure
+        $columns = DB::select("SELECT column_name FROM information_schema.columns WHERE table_name = 'orders'");
+        
+        // Try to create a minimal order
+        $order = \App\Models\Order::create([
+            'customer_name' => 'Debug Test',
+            'customer_phone' => '1234567890',
+            'status' => 'pending',
+            'total_amount' => 99.99,
+            'pickup_or_delivery' => 'pickup',
+            'payment_method' => 'cash',
+            'payment_status' => 'pending'
+        ]);
+        
+        return response()->json([
+            'status' => 'SUCCESS',
+            'db_test' => $result,
+            'columns' => $columns,
+            'order_created' => $order->id
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'ERROR',
+            'message' => $e->getMessage(),
+            'line' => $e->getLine(),
+            'file' => basename($e->getFile())
+        ]);
+    }
+});
+
 // Social Authentication Routes
 Route::prefix('auth')->group(function () {
     Route::get('/{provider}', [\App\Http\Controllers\Auth\SocialAuthController::class, 'redirect'])

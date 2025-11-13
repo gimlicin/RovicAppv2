@@ -14,7 +14,7 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'status',
-        'total_amount',
+        'total_amount', // If this fails, try changing to 'total_price'
         'pickup_or_delivery',
         'notes',
         'customer_name',
