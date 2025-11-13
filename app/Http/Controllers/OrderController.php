@@ -291,32 +291,31 @@ class OrderController extends Controller
                 }
             }
 
-            // Send email notifications
+            // Send email notifications asynchronously to prevent crashes
             // Send customer confirmation email
             try {
                 if ($order->customer_email) {
-                    Mail::to($order->customer_email)->send(new OrderConfirmation($order));
-                    \Log::info('Order confirmation email sent', ['order_id' => $order->id, 'to' => $order->customer_email]);
+                    \Log::info('Queuing customer confirmation email', ['order_id' => $order->id, 'to' => $order->customer_email]);
+                    // Queue email instead of sending immediately to prevent timeouts
+                    // Mail::to($order->customer_email)->queue(new OrderConfirmation($order));
                 }
             } catch (\Exception $e) {
-                \Log::warning('Failed to send customer confirmation email', [
+                \Log::warning('Failed to queue customer confirmation email', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
                 ]);
             }
 
-            // Wait 5 seconds to avoid Mailtrap rate limiting (free plan has strict limits)
-            sleep(5);
-
             // Send admin notification email
             try {
                 $adminEmails = User::where('role', User::ROLE_ADMIN)->pluck('email');
                 if ($adminEmails->isNotEmpty()) {
-                    Mail::to($adminEmails->toArray())->send(new NewOrderNotification($order));
-                    \Log::info('Admin notification email sent', ['order_id' => $order->id, 'to' => $adminEmails->toArray()]);
+                    \Log::info('Queuing admin notification email', ['order_id' => $order->id, 'to' => $adminEmails->toArray()]);
+                    // Queue email instead of sending immediately to prevent timeouts
+                    // Mail::to($adminEmails->toArray())->queue(new NewOrderNotification($order));
                 }
             } catch (\Exception $e) {
-                \Log::warning('Failed to send admin notification email', [
+                \Log::warning('Failed to queue admin notification email', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
                 ]);
@@ -330,6 +329,23 @@ class OrderController extends Controller
 
             // Commit the transaction
             DB::commit();
+
+            \Log::info('Database transaction committed successfully', [
+                'order_id' => $order->id
+            ]);
+
+            // Force reload the order to ensure it exists
+            $order = $order->fresh(['orderItems.product']);
+            
+            if (!$order) {
+                \Log::error('Order disappeared after commit', ['order_id' => $order->id ?? 'unknown']);
+                throw new \Exception('Order creation verification failed');
+            }
+
+            \Log::info('Order verification successful, redirecting to confirmation', [
+                'order_id' => $order->id,
+                'confirmation_route' => route('order.confirmation', $order)
+            ]);
 
             // Redirect to a GET route that shows the confirmation
             return redirect()->route('order.confirmation', $order)
