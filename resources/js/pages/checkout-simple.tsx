@@ -51,7 +51,7 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
         customer_phone: '',
         customer_email: '',
         notes: '',
-        payment_method: 'qr',
+        payment_method: paymentSettings.length > 0 ? paymentSettings[0].payment_method : 'qr',
         payment_proof: null as File | null,
         cart_items: [] as any[],
         pickup_or_delivery: 'pickup',
@@ -72,8 +72,17 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Debug logging
+        console.log('Form submission attempt:', {
+            payment_method: data.payment_method,
+            terms_accepted: data.terms_accepted,
+            selectedPaymentMethod,
+            paymentSettings,
+            paymentProof
+        });
         
         // Prepare cart items data
         const formattedCartItems = cartItems.map(item => ({
