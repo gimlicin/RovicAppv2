@@ -428,10 +428,6 @@ function OrdersIndex({ orders, filters }: Props) {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getPaymentStatusBadge(order.payment_status)}
-                          {/* DEBUG: Show payment proof status for all orders temporarily */}
-                          <span className="text-xs text-blue-500 mr-2" title={`Payment Proof: ${order.payment_proof || 'none'}`}>
-                            {order.payment_proof ? '📷' : '❌'}
-                          </span>
                           {order.payment_proof && (
                             <Button
                               variant="ghost"
