@@ -314,8 +314,8 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                                     </div>
                                 )}
                                 
-                                {/* Payment Proof Upload - Only show for QR payments */}
-                                {data.payment_method === 'qr' && (
+                                {/* Payment Proof Upload - Only show for QR/GCash payments */}
+                                {(data.payment_method === 'qr' || data.payment_method === 'gcash') && (
                                     <div className="p-5 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
                                         <label className="block text-base font-semibold mb-2 flex items-center gap-2">
                                             📤 Upload Payment Proof *
@@ -555,15 +555,15 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
 
                                 <button
                                     type="submit"
-                                    disabled={processing || (data.payment_method === 'qr' && !paymentProof) || !data.terms_accepted}
+                                    disabled={processing || ((data.payment_method === 'qr' || data.payment_method === 'gcash') && !paymentProof) || !data.terms_accepted}
                                     className="w-full bg-red-600 text-white py-4 px-6 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-base transition-colors shadow-md"
                                 >
                                     {processing ? 'Processing Order...' : 'Place Order'}
                                 </button>
                                 
-                                {((data.payment_method === 'qr' && !paymentProof) || !data.terms_accepted) && (
+                                {(((data.payment_method === 'qr' || data.payment_method === 'gcash') && !paymentProof) || !data.terms_accepted) && (
                                     <div className="text-sm text-gray-500 text-center space-y-1">
-                                        {data.payment_method === 'qr' && !paymentProof && <p>Please upload payment proof to continue</p>}
+                                        {(data.payment_method === 'qr' || data.payment_method === 'gcash') && !paymentProof && <p>Please upload payment proof to continue</p>}
                                         {!data.terms_accepted && <p>Please accept the terms and conditions to continue</p>}
                                     </div>
                                 )}
