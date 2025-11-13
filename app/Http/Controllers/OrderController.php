@@ -187,18 +187,34 @@ class OrderController extends Controller
             
             \Log::info('Calculated total', ['total' => $totalPrice]);
             
-            // Create minimal order
-            $order = Order::create([
-                'user_id' => auth()->id(),
-                'status' => 'pending',
-                'total_amount' => $totalPrice,
-                'pickup_or_delivery' => $validated['pickup_or_delivery'],
-                'customer_name' => $validated['customer_name'],
-                'customer_phone' => $validated['customer_phone'],
-                'customer_email' => $validated['customer_email'] ?? null,
-                'payment_method' => $validated['payment_method'],
-                'payment_status' => 'pending',
-            ]);
+            // Create minimal order - try both column names
+            try {
+                $order = Order::create([
+                    'user_id' => auth()->id(),
+                    'status' => 'pending',
+                    'total_amount' => $totalPrice, // Try this first
+                    'pickup_or_delivery' => $validated['pickup_or_delivery'],
+                    'customer_name' => $validated['customer_name'],
+                    'customer_phone' => $validated['customer_phone'],
+                    'customer_email' => $validated['customer_email'] ?? null,
+                    'payment_method' => $validated['payment_method'],
+                    'payment_status' => 'pending',
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Order create with total_amount failed, trying total_price', ['error' => $e->getMessage()]);
+                // Try with total_price instead
+                $order = Order::create([
+                    'user_id' => auth()->id(),
+                    'status' => 'pending',
+                    'total_price' => $totalPrice, // Use total_price instead
+                    'pickup_or_delivery' => $validated['pickup_or_delivery'],
+                    'customer_name' => $validated['customer_name'],
+                    'customer_phone' => $validated['customer_phone'],
+                    'customer_email' => $validated['customer_email'] ?? null,
+                    'payment_method' => $validated['payment_method'],
+                    'payment_status' => 'pending',
+                ]);
+            }
             
             \Log::info('Order created', ['order_id' => $order->id]);
             
