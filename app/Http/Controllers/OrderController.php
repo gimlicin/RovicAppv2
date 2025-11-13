@@ -332,7 +332,7 @@ class OrderController extends Controller
             DB::commit();
 
             // Redirect to a GET route that shows the confirmation
-            return redirect()->route('order.confirmation', ['order' => $order->id])
+            return redirect()->route('order.confirmation', $order)
                 ->with('success', 'Order placed successfully!');
 
         } catch (\Exception $e) {
@@ -345,12 +345,10 @@ class OrderController extends Controller
                 'order_data' => $validated ?? []
             ]);
             
-            // For debugging: add the error to the response directly
-            return response()->json([
-                'error' => true,
-                'message' => 'Order creation failed: ' . $e->getMessage(),
-                'details' => $e->getTraceAsString()
-            ], 422);
+            // Redirect back to checkout with error message
+            return redirect()->back()
+                ->withErrors(['order' => 'Order creation failed: ' . $e->getMessage()])
+                ->withInput();
         }
     }
 
@@ -359,12 +357,18 @@ class OrderController extends Controller
      */
     public function confirmation(Order $order)
     {
+        \Log::info('Order confirmation method reached', [
+            'order_id' => $order->id,
+            'user_id' => auth()->id()
+        ]);
+        
         // Load related data
         $order->load(['orderItems.product']);
         
         \Log::info('Order confirmation page accessed', [
             'order_id' => $order->id,
-            'user_id' => auth()->id()
+            'user_id' => auth()->id(),
+            'order_data' => $order->toArray()
         ]);
 
         return Inertia::render('order-confirmation', [
