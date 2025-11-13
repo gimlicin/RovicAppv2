@@ -186,23 +186,60 @@ class OrderController extends Controller
             return redirect()->back()->withErrors(['database' => 'Database connection failed'])->withInput();
         }
 
-        // Use EXACT same logic as working ultra-simple route
-        try {
-            \Log::info('Creating order with basic pattern');
+        // Calculate real cart total (copy logic from create method)
+        $total = 0;
+        $processedItems = [];
+
+        foreach ($cartItems as $item) {
+            // Handle both array and object formats
+            $productId = is_array($item) ? ($item['product_id'] ?? null) : ($item->product_id ?? null);
+            $quantity = (int) (is_array($item) ? ($item['quantity'] ?? 1) : ($item->quantity ?? 1));
             
-            // Create the most basic order possible (like ultra-simple route)
+            if ($productId) {
+                $product = Product::find($productId);
+                if ($product) {
+                    $itemTotal = $product->price * $quantity;
+                    $total += $itemTotal;
+                    
+                    $processedItems[] = [
+                        'product_id' => $productId,
+                        'quantity' => $quantity,
+                        'price' => $product->price,
+                        'total' => $itemTotal
+                    ];
+                }
+            }
+        }
+
+        // Use real cart total instead of fixed amount
+        try {
+            \Log::info('Creating order with real cart total', ['total' => $total]);
+            
+            // Create order with calculated total
             $order = Order::create([
                 'customer_name' => $request->input('customer_name', 'Order Customer'),
                 'customer_phone' => $request->input('customer_phone', '09123456789'),
                 'customer_email' => $request->input('customer_email'),
                 'status' => Order::STATUS_PENDING,
-                'total_amount' => 100.00, // Use fixed amount like ultra-simple
+                'total_amount' => $total > 0 ? $total : 100.00, // Use real total or fallback
                 'pickup_or_delivery' => Order::PICKUP,
                 'payment_method' => Order::PAYMENT_CASH, // Use proper constant
                 'payment_status' => Order::PAYMENT_STATUS_PENDING
             ]);
             
             \Log::info('✅ Order created successfully', ['order_id' => $order->id]);
+            
+            // Create order items for demo purposes
+            foreach ($processedItems as $item) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price']
+                ]);
+            }
+            
+            \Log::info('✅ Order items created', ['count' => count($processedItems)]);
             
             // Direct URL redirect (exactly like ultra-simple route)
             return redirect('/order-confirmation/' . $order->id)->with('success', 'Order created successfully!');
