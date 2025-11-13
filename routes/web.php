@@ -116,6 +116,34 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 
+// BYPASS VALIDATION TEST - REMOVE AFTER FIXING  
+Route::post('/bypass-order-validation', function(Request $request) {
+    \Log::info('=== BYPASS VALIDATION TEST ===', [
+        'request_data' => $request->all()
+    ]);
+    
+    try {
+        // Simulate real order data from your form submission
+        $order = \App\Models\Order::create([
+            'customer_name' => $request->input('customer_name', 'Test Customer'),
+            'customer_phone' => $request->input('customer_phone', '09123456789'),  
+            'customer_email' => $request->input('customer_email'),
+            'status' => 'pending',
+            'total_amount' => 999.99, // Use fixed amount for now
+            'pickup_or_delivery' => $request->input('pickup_or_delivery', 'pickup'),
+            'payment_method' => $request->input('payment_method', 'cash'),
+            'payment_status' => 'pending'
+        ]);
+        
+        \Log::info('✅ Bypass order created', ['order_id' => $order->id]);
+        return redirect()->route('order.confirmation', ['order' => $order->id])->with('success', 'Bypass order created!');
+        
+    } catch (\Exception $e) {
+        \Log::error('❌ Bypass order failed', ['error' => $e->getMessage()]);
+        return back()->withErrors(['error' => $e->getMessage()]);
+    }
+});
+
 // EMERGENCY MINIMAL ORDER TEST - REMOVE AFTER FIXING
 Route::post('/test-simple-order', function(Request $request) {
     \Log::info('=== MINIMAL ORDER TEST ===');
