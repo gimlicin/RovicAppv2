@@ -201,34 +201,18 @@ class OrderController extends Controller
             
             \Log::info('Calculated total', ['total' => $totalPrice]);
             
-            // Create minimal order - try both column names
-            try {
-                $order = Order::create([
-                    'user_id' => auth()->id(),
-                    'status' => 'pending',
-                    'total_amount' => $totalPrice, // Try this first
-                    'pickup_or_delivery' => $request->input('pickup_or_delivery', 'pickup'),
-                    'customer_name' => $request->input('customer_name', 'Customer'),
-                    'customer_phone' => $request->input('customer_phone', '09123456789'),
-                    'customer_email' => $request->input('customer_email'),
-                    'payment_method' => $request->input('payment_method', 'cash'),
-                    'payment_status' => 'pending',
-                ]);
-            } catch (\Exception $e) {
-                \Log::error('Order create with total_amount failed, trying total_price', ['error' => $e->getMessage()]);
-                // Try with total_price instead
-                $order = Order::create([
-                    'user_id' => auth()->id(),
-                    'status' => 'pending',
-                    'total_price' => $totalPrice, // Use total_price instead
-                    'pickup_or_delivery' => $request->input('pickup_or_delivery', 'pickup'),
-                    'customer_name' => $request->input('customer_name', 'Customer'),
-                    'customer_phone' => $request->input('customer_phone', '09123456789'),
-                    'customer_email' => $request->input('customer_email'),
-                    'payment_method' => $request->input('payment_method', 'cash'),
-                    'payment_status' => 'pending',
-                ]);
-            }
+            // Create order using the working pattern from ultra-simple route
+            $order = Order::create([
+                'user_id' => auth()->id(),
+                'customer_name' => $request->input('customer_name', 'Customer'),
+                'customer_phone' => $request->input('customer_phone', '09123456789'),
+                'customer_email' => $request->input('customer_email'),
+                'status' => 'pending',
+                'total_amount' => $totalPrice,
+                'pickup_or_delivery' => $request->input('pickup_or_delivery', 'pickup'),
+                'payment_method' => $request->input('payment_method', 'cash'),
+                'payment_status' => 'pending'
+            ]);
             
             \Log::info('Order created', ['order_id' => $order->id]);
             
@@ -258,12 +242,11 @@ class OrderController extends Controller
             
             \Log::info('✅ SUCCESS - Redirecting to confirmation', [
                 'order_id' => $order->id,
-                'route' => route('order.confirmation', $order),
-                'order_data' => $order->toArray()
+                'redirect_url' => '/order-confirmation/' . $order->id
             ]);
             
-            // Use proper route with model binding
-            return redirect()->route('order.confirmation', ['order' => $order->id])
+            // Use direct URL redirect like the working ultra-simple route
+            return redirect('/order-confirmation/' . $order->id)
                 ->with('success', 'Order placed successfully!');
                 
         } catch (\Exception $e) {
