@@ -20,9 +20,8 @@ return new class extends Migration
             $table->timestamp('payment_approved_at')->nullable()->after('payment_submitted_at');
             $table->foreignId('payment_approved_by')->nullable()->constrained('users')->after('payment_approved_at');
             
-            // Update status enum to include new payment-related statuses
-            $table->enum('status', ['pending', 'awaiting_payment', 'payment_submitted', 'payment_approved', 'payment_rejected', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'])
-                  ->default('pending')->change();
+            // Note: Status enum modification moved to 2025_11_12_082842_update_orders_status_enum_for_pickup_delivery.php
+            // to avoid PostgreSQL enum change() issues and consolidate status updates
         });
     }
 
@@ -43,9 +42,7 @@ return new class extends Migration
                 'payment_approved_by'
             ]);
             
-            // Revert status enum to original values
-            $table->enum('status', ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'])
-                  ->default('pending')->change();
+            // Note: Status enum revert handled by 2025_11_12_082842_update_orders_status_enum_for_pickup_delivery.php
         });
     }
 };

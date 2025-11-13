@@ -43,7 +43,10 @@ class PromotionSeeder extends Seeder
         ];
 
         foreach ($promotions as $promotion) {
-            Promotion::create($promotion);
+            Promotion::updateOrCreate(
+                ['title' => $promotion['title']], // Search by title
+                $promotion // Create or update with these values
+            );
         }
     }
 }

@@ -139,7 +139,10 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
-            Product::create($product);
+            Product::updateOrCreate(
+                ['name' => $product['name']], // Search by name
+                $product // Create or update with these values
+            );
         }
     }
 }

@@ -40,7 +40,10 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            Category::create($category);
+            Category::updateOrCreate(
+                ['slug' => $category['slug']], // Search by slug
+                $category // Create or update with these values
+            );
         }
     }
 }
