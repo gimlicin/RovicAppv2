@@ -265,8 +265,8 @@ class OrderController extends Controller
                 'order_data' => $order->toArray()
             ]);
             
-            // Force a specific redirect to test
-            return redirect('/order-confirmation/' . $order->id)
+            // Use proper route with model binding
+            return redirect()->route('order.confirmation', ['order' => $order->id])
                 ->with('success', 'Order placed successfully!');
                 
         } catch (\Exception $e) {

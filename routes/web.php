@@ -131,7 +131,7 @@ Route::post('/test-simple-order', function(Request $request) {
         ]);
         
         \Log::info('✅ Minimal order created', ['order_id' => $order->id]);
-        return redirect('/order-confirmation/' . $order->id)->with('success', 'Test order created!');
+        return redirect()->route('order.confirmation', ['order' => $order->id])->with('success', 'Test order created!');
         
     } catch (\Exception $e) {
         \Log::error('❌ Minimal order failed', ['error' => $e->getMessage()]);
