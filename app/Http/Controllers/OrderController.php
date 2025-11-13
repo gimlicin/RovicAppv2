@@ -315,16 +315,11 @@ class OrderController extends Controller
                 ]);
             }
 
-            // Redirect based on authentication status
-            
-            if (auth()->check()) {
-                return redirect()->route('orders.show', $order)
-                    ->with('success', 'Order placed successfully!');
-            } else {
-                return Inertia::render('order-confirmation', [
-                    'order' => $order->load('orderItems.product')
-                ]);
-            }
+            // Show order confirmation page for both authenticated and guest users
+            return Inertia::render('order-confirmation', [
+                'order' => $order->load('orderItems.product'),
+                'success' => 'Order placed successfully!'
+            ]);
 
         } catch (\Exception $e) {
             DB::rollback();
