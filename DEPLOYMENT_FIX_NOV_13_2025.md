@@ -217,9 +217,55 @@ ALTER TABLE orders ADD CONSTRAINT orders_status_check
 
 ---
 
+---
+
+## 🔄 Additional Fix #2 (3:50 PM Update)
+
+### Issue 5: Order Confirmation Not Showing for Authenticated Users ✅
+**Problem**: After submitting order, page redirects to homepage instead of showing confirmation. Network tab shows **404 error on `/60`** (order ID).
+
+**Root Cause**: 
+- Controller tried to redirect authenticated users to `orders.show` route
+- The `orders/show.tsx` page doesn't exist (empty directory)
+- Guest users worked fine because they used `order-confirmation.tsx`
+
+**Solution**: 
+- Show `order-confirmation` page for **all users** (authenticated + guest)
+- Removed conditional redirect logic
+- Orders are created successfully in database
+- Users now see proper confirmation page
+
+**Files Modified**:
+- `app/Http/Controllers/OrderController.php`
+
+**Code Change**:
+```php
+// Before: Different behavior for auth vs guest
+if (auth()->check()) {
+    return redirect()->route('orders.show', $order); // 404!
+} else {
+    return Inertia::render('order-confirmation', [...]);
+}
+
+// After: Same confirmation page for everyone
+return Inertia::render('order-confirmation', [
+    'order' => $order->load('orderItems.product'),
+    'success' => 'Order placed successfully!'
+]);
+```
+
+**Result**: 
+- ✅ Order confirmation page displays correctly
+- ✅ No more 404 errors
+- ✅ No redirect to homepage
+- ✅ Works for both authenticated and guest users
+
+---
+
 **Session Date**: November 13, 2025  
-**Time**: 3:00 PM - 3:45 PM (UTC+08:00)  
-**Status**: 🟢 All Issues Resolved - Redeploying  
+**Time**: 3:00 PM - 4:00 PM (UTC+08:00)  
+**Status**: 🟢 All Issues Resolved - Deployment in Progress  
 **Commits**: 
 - `625658b` - Initial HTTPS and seeder fixes
 - `d05cec8` - PostgreSQL enum migration fix
+- `9ba9f4f` - Order confirmation page fix

@@ -526,15 +526,15 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
 
                                 <button
                                     type="submit"
-                                    disabled={processing || !paymentProof || !data.terms_accepted}
+                                    disabled={processing || (data.payment_method === 'qr' && !paymentProof) || !data.terms_accepted}
                                     className="w-full bg-red-600 text-white py-4 px-6 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-base transition-colors shadow-md"
                                 >
                                     {processing ? 'Processing Order...' : 'Place Order'}
                                 </button>
                                 
-                                {(!paymentProof || !data.terms_accepted) && (
+                                {((data.payment_method === 'qr' && !paymentProof) || !data.terms_accepted) && (
                                     <div className="text-sm text-gray-500 text-center space-y-1">
-                                        {!paymentProof && <p>Please upload payment proof to continue</p>}
+                                        {data.payment_method === 'qr' && !paymentProof && <p>Please upload payment proof to continue</p>}
                                         {!data.terms_accepted && <p>Please accept the terms and conditions to continue</p>}
                                     </div>
                                 )}
