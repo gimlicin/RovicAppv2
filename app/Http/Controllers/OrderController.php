@@ -157,213 +157,93 @@ class OrderController extends Controller
     }
 
     /**
-     * Store a new order
+     * Store a new order - SIMPLIFIED VERSION FOR DEBUGGING
      */
     public function store(StoreOrderRequest $request)
     {
-        \Log::info('Order submission attempt', [
+        \Log::info('=== ORDER SUBMISSION START ===', [
             'user_id' => auth()->id(),
-            'request_data' => $request->all()
+            'has_payment_proof' => $request->hasFile('payment_proof')
         ]);
         
-        $validated = $request->validated();
-        
-        \Log::info('Order validation passed', [
-            'validated_data' => $validated
-        ]);
-
-        DB::beginTransaction();
-
         try {
-            // Calculate total price and validate stock with row locking for concurrency
+            $validated = $request->validated();
+            \Log::info('Validation passed', ['cart_items_count' => count($validated['cart_items'])]);
+            
+            // Test database connection
+            DB::select('SELECT 1 as test');
+            \Log::info('Database connection OK');
+            
+            DB::beginTransaction();
+            // SIMPLIFIED ORDER CREATION FOR TESTING
             $totalPrice = 0;
-            $orderItemsData = [];
-            $stockReservations = [];
-
             foreach ($validated['cart_items'] as $item) {
-                // Lock the product row to prevent race conditions
-                $product = Product::lockForUpdate()->find($item['product_id']);
-                
+                $product = Product::find($item['product_id']);
                 if (!$product) {
-                    throw new \Exception("Product with ID {$item['product_id']} not found.");
+                    throw new \Exception("Product not found: {$item['product_id']}");
                 }
-
-                // Check if product can fulfill the requested quantity
-                if (!$product->canFulfillQuantity($item['quantity'])) {
-                    $maxOrderable = $product->getMaxOrderableQuantity();
-                    throw new \Exception("Cannot order {$item['quantity']} of {$product->name}. Maximum available: {$maxOrderable}");
-                }
-
-                // Reserve stock for this order
-                if (!$product->reserveStock($item['quantity'])) {
-                    throw new \Exception("Failed to reserve stock for {$product->name}");
-                }
-
-                $stockReservations[] = [
-                    'product' => $product,
-                    'quantity' => $item['quantity']
-                ];
-
-                $itemTotal = $product->price * $item['quantity'];
-                $totalPrice += $itemTotal;
-
-                $orderItemsData[] = [
-                    'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
-                    'price' => $product->price,
-                    'total_price' => $itemTotal,
-                    'notes' => $item['notes'] ?? null
-                ];
+                $totalPrice += $product->price * $item['quantity'];
             }
-
-            // Calculate senior citizen discount if applicable
-            $isSeniorDiscount = $validated['is_senior_citizen'] ?? false;
-            $discountAmount = 0;
-            $discountType = null;
-            $finalTotal = $totalPrice;
-
-            if ($isSeniorDiscount) {
-                $discountAmount = Order::calculateSeniorDiscount($totalPrice);
-                $discountType = Order::DISCOUNT_SENIOR_CITIZEN;
-                $finalTotal = $totalPrice - $discountAmount;
-            }
-
-            // Handle payment proof upload if QR payment
-            $paymentProofPath = null;
-            $paymentStatus = Order::PAYMENT_STATUS_PENDING;
-            $orderStatus = Order::STATUS_PENDING;
-
-            if ($validated['payment_method'] === Order::PAYMENT_QR) {
-                if ($request->hasFile('payment_proof')) {
-                    $paymentProofPath = $request->file('payment_proof')->store('payment_proofs', 'public');
-                    $paymentStatus = Order::PAYMENT_STATUS_SUBMITTED;
-                    $orderStatus = Order::STATUS_PAYMENT_SUBMITTED;
-                }
-            } else {
-                // Cash payment - deduct stock immediately and confirm order
-                foreach ($stockReservations as $reservation) {
-                    $reservation['product']->deductStock($reservation['quantity']);
-                }
-                $paymentStatus = Order::PAYMENT_STATUS_APPROVED;
-                $orderStatus = Order::STATUS_CONFIRMED;
-            }
-
-            // Create the order
-            $orderData = [
-                'user_id' => auth()->id(), // Will be null for guest orders
-                'status' => $orderStatus,
-                'total_amount' => $finalTotal,
+            
+            \Log::info('Calculated total', ['total' => $totalPrice]);
+            
+            // Create minimal order
+            $order = Order::create([
+                'user_id' => auth()->id(),
+                'status' => 'pending',
+                'total_amount' => $totalPrice,
                 'pickup_or_delivery' => $validated['pickup_or_delivery'],
-                'notes' => $validated['notes'] ?? null,
                 'customer_name' => $validated['customer_name'],
                 'customer_phone' => $validated['customer_phone'],
                 'customer_email' => $validated['customer_email'] ?? null,
-                'delivery_address' => $validated['delivery_address'] ?? null,
-                'scheduled_date' => $validated['scheduled_date'] ?? null,
-                'is_bulk_order' => $validated['is_bulk_order'] ?? false,
                 'payment_method' => $validated['payment_method'],
-                'payment_proof_path' => $paymentProofPath,
-                'payment_status' => $paymentStatus,
-                'payment_submitted_at' => $paymentProofPath ? now() : null,
-                'is_senior_discount' => $isSeniorDiscount,
-                'discount_type' => $discountType,
-                'discount_amount' => $discountAmount,
-                'senior_id_verified' => false, // Will be verified upon delivery
-                'verification_notes' => $isSeniorDiscount ? 'Awaiting Senior Citizen ID verification upon delivery' : null,
-            ];
+                'payment_status' => 'pending',
+            ]);
             
-            $order = Order::create($orderData);
-
+            \Log::info('Order created', ['order_id' => $order->id]);
+            
             // Create order items
-            foreach ($orderItemsData as $itemData) {
-                $order->orderItems()->create($itemData);
-            }
-
-            // Clear the cart after successful order
-            if (auth()->check()) {
-                // Clear authenticated user's cart
-                CartItem::where('user_id', auth()->id())->delete();
-            } else {
-                // Clear guest cart by session ID
-                $sessionId = $request->session()->getId();
-                if ($sessionId) {
-                    CartItem::where('session_id', $sessionId)->delete();
-                }
-            }
-
-            // Send email notifications asynchronously to prevent crashes
-            // Send customer confirmation email
-            try {
-                if ($order->customer_email) {
-                    \Log::info('Queuing customer confirmation email', ['order_id' => $order->id, 'to' => $order->customer_email]);
-                    // Queue email instead of sending immediately to prevent timeouts
-                    // Mail::to($order->customer_email)->queue(new OrderConfirmation($order));
-                }
-            } catch (\Exception $e) {
-                \Log::warning('Failed to queue customer confirmation email', [
-                    'order_id' => $order->id,
-                    'error' => $e->getMessage(),
+            foreach ($validated['cart_items'] as $item) {
+                $product = Product::find($item['product_id']);
+                $order->orderItems()->create([
+                    'product_id' => $product->id,
+                    'quantity' => $item['quantity'],
+                    'price' => $product->price,
+                    'total_price' => $product->price * $item['quantity'],
                 ]);
             }
-
-            // Send admin notification email
-            try {
-                $adminEmails = User::where('role', User::ROLE_ADMIN)->pluck('email');
-                if ($adminEmails->isNotEmpty()) {
-                    \Log::info('Queuing admin notification email', ['order_id' => $order->id, 'to' => $adminEmails->toArray()]);
-                    // Queue email instead of sending immediately to prevent timeouts
-                    // Mail::to($adminEmails->toArray())->queue(new NewOrderNotification($order));
-                }
-            } catch (\Exception $e) {
-                \Log::warning('Failed to queue admin notification email', [
-                    'order_id' => $order->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            \Log::info('Order created successfully', [
-                'order_id' => $order->id,
-                'user_id' => auth()->id(),
-                'total_amount' => $order->total_amount
-            ]);
-
-            // Commit the transaction
-            DB::commit();
-
-            \Log::info('Database transaction committed successfully', [
-                'order_id' => $order->id
-            ]);
-
-            // Force reload the order to ensure it exists
-            $order = $order->fresh(['orderItems.product']);
             
+            \Log::info('Order items created');
+            
+            // Skip emails for now - just commit and redirect
+            DB::commit();
+            \Log::info('Transaction committed successfully', ['order_id' => $order->id]);
+            
+            // Verify order exists
+            $order = Order::find($order->id);
             if (!$order) {
-                \Log::error('Order disappeared after commit', ['order_id' => $order->id ?? 'unknown']);
-                throw new \Exception('Order creation verification failed');
+                \Log::error('Order vanished after commit');
+                throw new \Exception('Order verification failed');
             }
-
-            \Log::info('Order verification successful, redirecting to confirmation', [
+            
+            \Log::info('Redirecting to confirmation', [
                 'order_id' => $order->id,
-                'confirmation_route' => route('order.confirmation', $order)
+                'route' => route('order.confirmation', $order)
             ]);
-
-            // Redirect to a GET route that shows the confirmation
+            
             return redirect()->route('order.confirmation', $order)
                 ->with('success', 'Order placed successfully!');
-
+                
         } catch (\Exception $e) {
             DB::rollback();
-            
-            \Log::error('Order creation failed', [
+            \Log::error('=== ORDER CREATION FAILED ===', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => auth()->id(),
-                'order_data' => $validated ?? []
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
             ]);
             
-            // Redirect back to checkout with error message
             return redirect()->back()
-                ->withErrors(['order' => 'Order creation failed: ' . $e->getMessage()])
+                ->withErrors(['order' => 'Order failed: ' . $e->getMessage()])
                 ->withInput();
         }
     }
