@@ -180,12 +180,13 @@ class Order extends Model
 
     /**
      * Get applicable ready statuses based on delivery type
+     * Using STATUS_READY for production compatibility
      */
     private function getApplicableReadyStatuses(): array
     {
-        return $this->pickup_or_delivery === self::PICKUP 
-            ? [self::STATUS_READY_FOR_PICKUP]
-            : [self::STATUS_READY_FOR_DELIVERY];
+        // Use simple 'ready' status for production compatibility
+        // The specific pickup/delivery statuses require database migration
+        return [self::STATUS_READY];
     }
 
     /**

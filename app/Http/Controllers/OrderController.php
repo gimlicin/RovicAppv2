@@ -533,9 +533,25 @@ class OrderController extends Controller
                     break;
 
                 case Order::STATUS_CANCELLED:
-                    // Order is cancelled - this should use the cancel method instead
-                    return redirect()->back()
-                        ->with('error', 'Please use the cancel button to cancel orders.');
+                    // Cancel the order and release stock
+                    foreach ($order->orderItems as $orderItem) {
+                        $product = Product::lockForUpdate()->find($orderItem->product_id);
+                        if ($product && $product->track_stock) {
+                            $product->releaseStock($orderItem->quantity);
+                        }
+                    }
+                    
+                    $order->update(['status' => $newStatus]);
+                    
+                    // Create notification
+                    if ($order->user_id) {
+                        Notification::createPaymentNotification(
+                            $order,
+                            'Order Cancelled',
+                            "Your order #{$order->id} has been cancelled."
+                        );
+                    }
+                    break;
 
                 default:
                     $order->update(['status' => $newStatus]);
