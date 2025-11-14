@@ -111,9 +111,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         ->name('payment-settings.destroy');
     Route::patch('/payment-settings/{paymentSetting}/toggle-active', [\App\Http\Controllers\Admin\PaymentSettingController::class, 'toggleActive'])
         ->name('payment-settings.toggle-active');
-    Route::get('/payment-settings/{paymentSetting}/qr-code', [\App\Http\Controllers\Admin\PaymentSettingController::class, 'viewQrCode'])
-        ->name('payment-settings.qr-code');
 });
+
+// Public QR code access for checkout (customers need this)
+Route::get('/admin/payment-settings/{paymentSetting}/qr-code', [\App\Http\Controllers\Admin\PaymentSettingController::class, 'viewQrCode'])
+    ->name('admin.payment-settings.qr-code');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
