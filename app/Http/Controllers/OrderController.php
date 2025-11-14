@@ -263,7 +263,8 @@ class OrderController extends Controller
             if ($paymentProofPath) {
                 $orderData['payment_proof_path'] = $paymentProofPath;
                 $orderData['payment_status'] = Order::PAYMENT_STATUS_SUBMITTED;
-                $orderData['status'] = Order::STATUS_PAYMENT_SUBMITTED;
+                $orderData['payment_submitted_at'] = now();
+                // Keep order status as 'pending' - only payment status changes
                 \Log::info('📸 Payment proof attached to order');
             }
 
