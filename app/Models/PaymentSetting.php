@@ -39,7 +39,7 @@ class PaymentSetting extends Model
         }
 
         // Use route-based serving for better production compatibility
-        return route('payment-settings.qr-code', $this->id);
+        return route('admin.payment-settings.qr-code', $this->id);
     }
 
     /**
