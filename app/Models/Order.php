@@ -35,6 +35,7 @@ class Order extends Model
         'discount_amount',
         'senior_id_verified',
         'verification_notes',
+        'payment_proof_base64',
     ];
 
     protected $casts = [

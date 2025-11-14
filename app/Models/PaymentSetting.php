@@ -17,6 +17,7 @@ class PaymentSetting extends Model
         'instructions',
         'is_active',
         'display_order',
+        'qr_code_base64',
     ];
 
     protected $casts = [
@@ -29,6 +30,11 @@ class PaymentSetting extends Model
      */
     public function getQrCodeUrlAttribute(): ?string
     {
+        // Prioritize base64 data for production compatibility  
+        if ($this->qr_code_base64) {
+            return 'data:image/jpeg;base64,' . $this->qr_code_base64;
+        }
+        
         if (!$this->qr_code_path) {
             return null;
         }
@@ -38,7 +44,7 @@ class PaymentSetting extends Model
             return $this->qr_code_path;
         }
 
-        // Use route-based serving for better production compatibility
+        // Fallback to route-based serving
         return route('admin.payment-settings.qr-code', $this->id);
     }
 
