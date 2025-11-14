@@ -589,7 +589,7 @@ class OrderController extends Controller
 
             $order->update([
                 'payment_status' => Order::PAYMENT_STATUS_APPROVED,
-                'status' => Order::STATUS_PAYMENT_APPROVED,
+                'status' => Order::STATUS_CONFIRMED, // Move to confirmed after payment approval
                 'payment_approved_at' => now(),
                 'payment_approved_by' => auth()->id(),
                 'payment_rejection_reason' => null,
@@ -657,7 +657,7 @@ class OrderController extends Controller
 
             $order->update([
                 'payment_status' => Order::PAYMENT_STATUS_REJECTED,
-                'status' => Order::STATUS_PAYMENT_REJECTED,
+                'status' => Order::STATUS_CANCELLED, // Cancel order after payment rejection
                 'payment_rejection_reason' => $validated['rejection_reason'],
                 'payment_approved_at' => null,
                 'payment_approved_by' => null,
