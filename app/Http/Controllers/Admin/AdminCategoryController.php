@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class AdminCategoryController extends Controller
@@ -40,6 +41,17 @@ class AdminCategoryController extends Controller
             'is_active' => 'boolean',
         ]);
 
+        // Generate a unique slug based on the category name
+        $baseSlug = Str::slug($validated['name']);
+        $slug = $baseSlug;
+        $counter = 1;
+
+        while (Category::where('slug', $slug)->exists()) {
+            $slug = $baseSlug.'-'.$counter++;
+        }
+
+        $validated['slug'] = $slug;
+
         Category::create($validated);
 
         return redirect()->route('admin.categories.index')
@@ -69,6 +81,17 @@ class AdminCategoryController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
+
+        // Regenerate slug when the name changes, ensuring uniqueness
+        $baseSlug = Str::slug($validated['name']);
+        $slug = $baseSlug;
+        $counter = 1;
+
+        while (Category::where('slug', $slug)->where('id', '!=', $category->id)->exists()) {
+            $slug = $baseSlug.'-'.$counter++;
+        }
+
+        $validated['slug'] = $slug;
 
         $category->update($validated);
 
