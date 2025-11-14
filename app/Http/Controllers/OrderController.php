@@ -188,17 +188,12 @@ class OrderController extends Controller
 
         // OPTIONAL: Handle payment proof upload (won't break if not present)
         $paymentProofPath = null;
-        $paymentProofBase64 = null;
         if ($request->hasFile('payment_proof')) {
             try {
                 $file = $request->file('payment_proof');
                 // Validate file
                 if ($file->isValid()) {
                     $paymentProofPath = $file->store('payment-proofs', 'public');
-                    
-                    // Store as base64 for production compatibility
-                    $paymentProofBase64 = base64_encode(file_get_contents($file->getRealPath()));
-                    
                     \Log::info('✅ Payment proof uploaded successfully', ['path' => $paymentProofPath]);
                 }
             } catch (\Exception $e) {
@@ -263,6 +258,17 @@ class OrderController extends Controller
                 'payment_status' => Order::PAYMENT_STATUS_PENDING,
                 'notes' => $request->input('notes', '')
             ];
+            
+            // If payment proof was uploaded, add to order data
+            if ($paymentProofPath) {
+                $orderData['payment_proof_path'] = $paymentProofPath;
+                $orderData['payment_status'] = Order::PAYMENT_STATUS_SUBMITTED;
+                $orderData['payment_submitted_at'] = now();
+            }
+            
+            // CRITICAL: Create the order (this was missing!)
+            $order = Order::create($orderData);
+            \Log::info('✅ Order created successfully', ['order_id' => $order->id]);
             
             // Create order items for demo purposes
             foreach ($processedItems as $item) {

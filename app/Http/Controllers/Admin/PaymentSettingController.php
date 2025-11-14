@@ -52,19 +52,13 @@ class PaymentSettingController extends Controller
 
         // Handle QR code upload
         $qrCodePath = null;
-        $qrCodeBase64 = null;
         if ($request->hasFile('qr_code')) {
-            $file = $request->file('qr_code');
-            $qrCodePath = $file->store('qr_codes', 'public');
-            
-            // Store as base64 for production compatibility
-            $qrCodeBase64 = base64_encode(file_get_contents($file->getRealPath()));
+            $qrCodePath = $request->file('qr_code')->store('qr_codes', 'public');
         }
 
         PaymentSetting::create([
             'payment_method' => $validated['payment_method'],
             'qr_code_path' => $qrCodePath,
-            'qr_code_base64' => $qrCodeBase64,
             'account_name' => $validated['account_name'] ?? null,
             'account_number' => $validated['account_number'] ?? null,
             'instructions' => $validated['instructions'] ?? null,
@@ -97,17 +91,12 @@ class PaymentSettingController extends Controller
                 Storage::disk('public')->delete($paymentSetting->qr_code_path);
             }
 
-            $file = $request->file('qr_code');
-            $validated['qr_code_path'] = $file->store('qr_codes', 'public');
-            
-            // Store as base64 for production compatibility
-            $validated['qr_code_base64'] = base64_encode(file_get_contents($file->getRealPath()));
+            $validated['qr_code_path'] = $request->file('qr_code')->store('qr_codes', 'public');
         }
 
         $paymentSetting->update([
             'payment_method' => $validated['payment_method'],
             'qr_code_path' => $validated['qr_code_path'] ?? $paymentSetting->qr_code_path,
-            'qr_code_base64' => $validated['qr_code_base64'] ?? $paymentSetting->qr_code_base64,
             'account_name' => $validated['account_name'] ?? null,
             'account_number' => $validated['account_number'] ?? null,
             'instructions' => $validated['instructions'] ?? null,
