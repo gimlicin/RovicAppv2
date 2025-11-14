@@ -201,7 +201,7 @@ function OrdersIndex({ orders, filters }: Props) {
   const openPaymentProofLightbox = (order: Order) => {
     if (order.payment_proof) {
       setLightboxImage({
-        src: `/storage/${order.payment_proof}`,
+        src: `/admin/orders/${order.id}/payment-proof`,
         alt: `Payment Proof - Order #${order.id}`,
         orderId: order.id,
       });
@@ -770,7 +770,7 @@ function OrdersIndex({ orders, filters }: Props) {
                             onClick={() => openPaymentProofLightbox(selectedOrder)}
                           >
                             <img
-                              src={`/storage/${selectedOrder.payment_proof}`}
+                              src={`/admin/orders/${selectedOrder.id}/payment-proof`}
                               alt="Payment Proof"
                               className="w-full h-auto max-h-[400px] object-contain"
                               onError={(e) => {
@@ -802,7 +802,7 @@ function OrdersIndex({ orders, filters }: Props) {
                               className="text-xs flex-1"
                               onClick={() => {
                                 const link = document.createElement('a');
-                                link.href = `/storage/${selectedOrder.payment_proof}`;
+                                link.href = `/admin/orders/${selectedOrder.id}/payment-proof`;
                                 link.download = `payment-proof-order-${selectedOrder.id}`;
                                 link.click();
                               }}
