@@ -47,6 +47,10 @@ fi
 echo "Configuring nginx for port $PORT..."
 sed -i "s/listen 80/listen $PORT/g" /etc/nginx/sites-available/default
 
+# CRITICAL: Clear config cache so Laravel reads fresh environment variables
+echo "Clearing Laravel config cache..."
+php artisan config:clear || echo "Config clear failed"
+
 # Start supervisor to run nginx + php-fpm
 echo "Starting web services..."
 exec supervisord -c /etc/supervisor/conf.d/supervisord.conf

@@ -58,6 +58,9 @@ RUN touch .env && \
     echo "APP_KEY=" >> .env && \
     php artisan key:generate --force --no-interaction
 
+# Configure PHP-FPM to pass environment variables to PHP
+RUN echo "clear_env = no" >> /usr/local/etc/php-fpm.d/www.conf
+
 # Create database setup script
 RUN echo '#!/bin/bash\n\
 echo "Setting up database..."\n\
@@ -97,6 +100,7 @@ nodaemon=true \n\
 command=php-fpm \n\
 autostart=true \n\
 autorestart=true \n\
+environment=HOME="/root",USER="root" \n\
 [program:nginx] \n\
 command=nginx -g "daemon off;" \n\
 autostart=true \n\
