@@ -53,7 +53,7 @@ COPY . .
 RUN npm run build
 
 # Set up Laravel
-RUN cp .env.example .env || true
+# Don't copy .env.example - Render uses environment variables
 RUN php artisan key:generate --force --no-interaction
 
 # Create database setup script
@@ -62,6 +62,7 @@ echo "Setting up database..."\n\
 php artisan migrate --force || echo "Migration failed, continuing..."\n\
 php artisan db:seed --force || echo "Seeding failed, continuing..."\n\
 php artisan storage:link || echo "Storage link failed, continuing..."\n\
+php artisan config:clear || echo "Config clear failed, continuing..."\n\
 php artisan config:cache || echo "Config cache failed, continuing..."\n\
 echo "Database setup completed"\n\
 ' > /var/www/html/setup-db.sh && chmod +x /var/www/html/setup-db.sh
