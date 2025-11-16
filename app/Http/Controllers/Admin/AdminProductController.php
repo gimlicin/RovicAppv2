@@ -90,16 +90,15 @@ class AdminProductController extends Controller
                 
                 file_put_contents(storage_path('cloudinary_debug.txt'), date('Y-m-d H:i:s') . ' - BEFORE UPLOAD: Config OK, attempting upload...' . "\n", FILE_APPEND);
                 
-                // Upload to Cloudinary
-                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                // Upload to Cloudinary - Using the correct method
+                $uploadedFile = Cloudinary::uploadFile($request->file('image')->getRealPath(), [
                     'folder' => 'rovic-products',
-                    'resource_type' => 'image'
                 ]);
                 
                 file_put_contents(storage_path('cloudinary_debug.txt'), date('Y-m-d H:i:s') . ' - AFTER UPLOAD: Got response, extracting URL...' . "\n", FILE_APPEND);
                 
-                if (!$uploadedFile || !method_exists($uploadedFile, 'getSecurePath')) {
-                    throw new \Exception('Upload response is invalid: ' . gettype($uploadedFile));
+                if (!$uploadedFile) {
+                    throw new \Exception('Upload response is null');
                 }
                 
                 $validated['image_url'] = $uploadedFile->getSecurePath();
@@ -208,10 +207,9 @@ class AdminProductController extends Controller
             try {
                 file_put_contents(storage_path('cloudinary_debug.txt'), date('Y-m-d H:i:s') . ' - UPDATE: Starting Cloudinary upload for product #' . $product->id . "\n", FILE_APPEND);
                 
-                // Upload to Cloudinary
-                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                // Upload to Cloudinary - Using the correct method
+                $uploadedFile = Cloudinary::uploadFile($request->file('image')->getRealPath(), [
                     'folder' => 'rovic-products',
-                    'resource_type' => 'image'
                 ]);
                 $validated['image_url'] = $uploadedFile->getSecurePath();
                 
