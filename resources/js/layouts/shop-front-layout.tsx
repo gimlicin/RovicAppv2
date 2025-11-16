@@ -11,8 +11,8 @@ export default function ShopFrontLayout({children}:{children:React.ReactNode}) {
     <div>
         <ThemeProvider
             attribute="class"
-            defaultTheme="system"
-            enableSystem
+            defaultTheme="light"
+            enableSystem={false}
             disableTransitionOnChange
           >
         <FlashMessage />
