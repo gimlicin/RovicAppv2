@@ -63,10 +63,11 @@ class AdminProductController extends Controller
         // Handle image upload
         if ($request->hasFile('image')) {
             try {
-                \Log::info('🔄 Attempting Cloudinary upload...', [
+                \Log::error('🔄 CLOUDINARY DEBUG: Attempting upload', [
                     'file_name' => $request->file('image')->getClientOriginalName(),
                     'cloud_name' => config('cloudinary.cloud_name'),
-                    'has_api_key' => !empty(config('cloudinary.api_key')),
+                    'api_key' => config('cloudinary.api_key'),
+                    'has_secret' => !empty(config('cloudinary.api_secret')),
                 ]);
                 
                 // Upload to Cloudinary
@@ -76,11 +77,11 @@ class AdminProductController extends Controller
                 ]);
                 
                 $validated['image_url'] = $uploadedFile->getSecurePath();
-                \Log::info('✅ Cloudinary upload SUCCESS!', ['url' => $validated['image_url']]);
+                \Log::error('✅ CLOUDINARY SUCCESS!', ['url' => $validated['image_url']]);
             } catch (\Exception $e) {
-                \Log::error('❌ Cloudinary upload FAILED', [
+                \Log::error('❌ CLOUDINARY UPLOAD FAILED', [
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
+                    'class' => get_class($e),
                     'cloud_name' => config('cloudinary.cloud_name'),
                 ]);
                 // Fallback to local storage
@@ -155,10 +156,11 @@ class AdminProductController extends Controller
         // Handle image upload
         if ($request->hasFile('image')) {
             try {
-                \Log::info('🔄 Attempting Cloudinary upload (update)...', [
+                \Log::error('🔄 CLOUDINARY DEBUG: Attempting upload (update)', [
                     'file_name' => $request->file('image')->getClientOriginalName(),
                     'product_id' => $product->id,
                     'cloud_name' => config('cloudinary.cloud_name'),
+                    'api_key' => config('cloudinary.api_key'),
                 ]);
                 
                 // Upload to Cloudinary
@@ -167,7 +169,7 @@ class AdminProductController extends Controller
                     'resource_type' => 'image'
                 ]);
                 $validated['image_url'] = $uploadedFile->getSecurePath();
-                \Log::info('✅ Cloudinary upload SUCCESS (update)!', ['url' => $validated['image_url']]);
+                \Log::error('✅ CLOUDINARY SUCCESS (update)!', ['url' => $validated['image_url']]);
                 
                 // Delete old local image if exists
                 if ($product->image_url && str_starts_with($product->image_url, '/storage/')) {
@@ -175,9 +177,9 @@ class AdminProductController extends Controller
                     \Storage::disk('public')->delete($oldPath);
                 }
             } catch (\Exception $e) {
-                \Log::error('❌ Cloudinary upload FAILED (update)', [
+                \Log::error('❌ CLOUDINARY UPLOAD FAILED (update)', [
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
+                    'class' => get_class($e),
                 ]);
                 // Fallback to local storage
                 if ($product->image_url && str_starts_with($product->image_url, '/storage/')) {
