@@ -45,7 +45,7 @@ npm run build
 # Laravel setup
 echo "=== Laravel Setup ==="
 php artisan --version
-cp .env.example .env 2>/dev/null || true
+# Don't copy .env.example - Render uses environment variables
 php artisan key:generate --force
 
 # Run migrations during build (only when deploying new code)
@@ -56,8 +56,17 @@ php artisan migrate --force || echo "Migrations skipped"
 echo "=== Setting up Storage ==="
 php artisan storage:link || echo "Storage link already exists"
 
-# Cache config for better performance
-echo "=== Caching Configuration ==="
+# Clear and cache config for better performance
+echo "=== Clearing Old Config Cache ==="
+php artisan config:clear || echo "Config clear skipped"
+
+echo "=== Caching Fresh Configuration ==="
 php artisan config:cache || echo "Config caching skipped"
+
+echo "=== Clearing Route Cache ==="
+php artisan route:clear || echo "Route clear skipped"
+
+echo "=== Clearing View Cache ==="
+php artisan view:clear || echo "View clear skipped"
 
 echo "=== Build Script Completed ==="
