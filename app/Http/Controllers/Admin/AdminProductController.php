@@ -63,19 +63,32 @@ class AdminProductController extends Controller
         // Handle image upload
         if ($request->hasFile('image')) {
             try {
+                \Log::info('🔄 Attempting Cloudinary upload...', [
+                    'file_name' => $request->file('image')->getClientOriginalName(),
+                    'cloud_name' => config('cloudinary.cloud_name'),
+                    'has_api_key' => !empty(config('cloudinary.api_key')),
+                ]);
+                
                 // Upload to Cloudinary
                 $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
                     'folder' => 'rovic-products',
                     'resource_type' => 'image'
                 ]);
+                
                 $validated['image_url'] = $uploadedFile->getSecurePath();
+                \Log::info('✅ Cloudinary upload SUCCESS!', ['url' => $validated['image_url']]);
             } catch (\Exception $e) {
-                \Log::error('Cloudinary upload failed', ['error' => $e->getMessage()]);
+                \Log::error('❌ Cloudinary upload FAILED', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'cloud_name' => config('cloudinary.cloud_name'),
+                ]);
                 // Fallback to local storage
                 $image = $request->file('image');
                 $filename = time() . '_' . $image->getClientOriginalName();
                 $path = $image->storeAs('products', $filename, 'public');
                 $validated['image_url'] = '/storage/' . $path;
+                \Log::info('⚠️ Using local storage fallback', ['path' => $validated['image_url']]);
             }
         } elseif ($request->filled('image_url')) {
             // Keep existing image_url if provided (backward compatibility)
@@ -142,12 +155,19 @@ class AdminProductController extends Controller
         // Handle image upload
         if ($request->hasFile('image')) {
             try {
+                \Log::info('🔄 Attempting Cloudinary upload (update)...', [
+                    'file_name' => $request->file('image')->getClientOriginalName(),
+                    'product_id' => $product->id,
+                    'cloud_name' => config('cloudinary.cloud_name'),
+                ]);
+                
                 // Upload to Cloudinary
                 $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
                     'folder' => 'rovic-products',
                     'resource_type' => 'image'
                 ]);
                 $validated['image_url'] = $uploadedFile->getSecurePath();
+                \Log::info('✅ Cloudinary upload SUCCESS (update)!', ['url' => $validated['image_url']]);
                 
                 // Delete old local image if exists
                 if ($product->image_url && str_starts_with($product->image_url, '/storage/')) {
@@ -155,7 +175,10 @@ class AdminProductController extends Controller
                     \Storage::disk('public')->delete($oldPath);
                 }
             } catch (\Exception $e) {
-                \Log::error('Cloudinary upload failed', ['error' => $e->getMessage()]);
+                \Log::error('❌ Cloudinary upload FAILED (update)', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 // Fallback to local storage
                 if ($product->image_url && str_starts_with($product->image_url, '/storage/')) {
                     $oldPath = str_replace('/storage/', '', $product->image_url);
@@ -165,6 +188,7 @@ class AdminProductController extends Controller
                 $filename = time() . '_' . $image->getClientOriginalName();
                 $path = $image->storeAs('products', $filename, 'public');
                 $validated['image_url'] = '/storage/' . $path;
+                \Log::info('⚠️ Using local storage fallback (update)', ['path' => $validated['image_url']]);
             }
         } elseif ($request->filled('image_url')) {
             // Keep existing image_url if provided
