@@ -61,19 +61,17 @@ class AdminProductController extends Controller
         ]);
 
         // Handle image upload
+        $uploadDebug = [];
         if ($request->hasFile('image')) {
+            $uploadDebug['file_uploaded'] = true;
+            $uploadDebug['file_name'] = $request->file('image')->getClientOriginalName();
+            $uploadDebug['file_size'] = $request->file('image')->getSize();
+            $uploadDebug['cloud_name'] = config('cloudinary.cloud_name');
+            $uploadDebug['api_key_set'] = !empty(config('cloudinary.api_key'));
+            $uploadDebug['api_secret_set'] = !empty(config('cloudinary.api_secret'));
+            
             try {
-                // CRITICAL: Log to stderr for Docker/Render visibility
-                error_log('🔄 CLOUDINARY: Upload attempt starting...');
-                error_log('📸 File: ' . $request->file('image')->getClientOriginalName());
-                error_log('☁️ Cloud: ' . config('cloudinary.cloud_name'));
-                
-                \Log::error('🔄 CLOUDINARY DEBUG: Attempting upload', [
-                    'file_name' => $request->file('image')->getClientOriginalName(),
-                    'cloud_name' => config('cloudinary.cloud_name'),
-                    'api_key' => config('cloudinary.api_key'),
-                    'has_secret' => !empty(config('cloudinary.api_secret')),
-                ]);
+                $uploadDebug['attempt'] = 'cloudinary_upload_starting';
                 
                 // Upload to Cloudinary
                 $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
@@ -82,33 +80,34 @@ class AdminProductController extends Controller
                 ]);
                 
                 $validated['image_url'] = $uploadedFile->getSecurePath();
+                $uploadDebug['result'] = 'cloudinary_success';
+                $uploadDebug['url'] = $validated['image_url'];
                 
-                error_log('✅ CLOUDINARY SUCCESS! URL: ' . $validated['image_url']);
-                \Log::error('✅ CLOUDINARY SUCCESS!', ['url' => $validated['image_url']]);
+                // Store success message in session
+                session()->flash('cloudinary_debug', 'Cloudinary upload SUCCESS! URL: ' . $validated['image_url']);
             } catch (\Exception $e) {
-                error_log('❌ CLOUDINARY FAILED: ' . $e->getMessage());
+                $uploadDebug['result'] = 'cloudinary_failed';
+                $uploadDebug['error_message'] = $e->getMessage();
+                $uploadDebug['error_class'] = get_class($e);
+                $uploadDebug['error_code'] = $e->getCode();
+                $uploadDebug['error_file'] = $e->getFile();
+                $uploadDebug['error_line'] = $e->getLine();
                 
-                \Log::error('❌ CLOUDINARY UPLOAD FAILED', [
-                    'error' => $e->getMessage(),
-                    'class' => get_class($e),
-                    'cloud_name' => config('cloudinary.cloud_name'),
-                ]);
                 // Fallback to local storage
                 $image = $request->file('image');
                 $filename = time() . '_' . $image->getClientOriginalName();
                 $path = $image->storeAs('products', $filename, 'public');
                 $validated['image_url'] = '/storage/' . $path;
+                $uploadDebug['fallback_path'] = $validated['image_url'];
                 
-                error_log('⚠️ FALLBACK: Saved to local storage: ' . $validated['image_url']);
-                \Log::info('⚠️ Using local storage fallback', ['path' => $validated['image_url']]);
+                // Store error in session
+                session()->flash('cloudinary_debug', 'Cloudinary FAILED: ' . $e->getMessage() . ' | Saved to local: ' . $validated['image_url']);
             }
         } elseif ($request->filled('image_url')) {
             // Keep existing image_url if provided (backward compatibility)
             $validated['image_url'] = $request->image_url;
-            error_log('ℹ️ KEEPING EXISTING IMAGE URL: ' . $validated['image_url']);
         } else {
             $validated['image_url'] = null;
-            error_log('⚠️ NO FILE UPLOADED - No image will be saved');
         }
 
         // Remove 'image' from validated data as it's not a database column

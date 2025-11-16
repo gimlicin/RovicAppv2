@@ -289,6 +289,17 @@ Route::get('/test-cloudinary-upload', function() {
     }
 })->name('test.cloudinary.upload');
 
+// View Cloudinary upload debug info
+Route::get('/cloudinary-last-upload', function() {
+    $debug = session('cloudinary_debug', 'No upload attempts yet');
+    
+    return response()->json([
+        'message' => $debug,
+        'session_id' => session()->getId(),
+        'instructions' => 'Upload an image via admin panel, then refresh this page to see the error',
+    ]);
+})->name('cloudinary.last.upload');
+
 // View Laravel logs
 Route::get('/debug-logs', function() {
     $logPath = storage_path('logs/laravel.log');
