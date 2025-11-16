@@ -36,12 +36,9 @@ if [ ! -z "$DATABASE_URL" ]; then
     echo "DB_USERNAME: $DB_USER"
     echo "=============================="
     
-    echo "Database URL found, running setup..."
-    php artisan migrate --force || echo "Migration skipped"
-    php artisan db:seed --force || echo "Seeding skipped" 
-    php artisan storage:link || echo "Storage link skipped"
-    php artisan config:cache || echo "Config cache skipped"
-    echo "Database setup completed"
+    echo "Database URL found, configuration complete"
+    # Note: Migrations now run in build script (render-build.sh)
+    # This startup script only runs when server restarts (not on every deploy)
 else
     echo "No DATABASE_URL found, skipping database setup"
 fi

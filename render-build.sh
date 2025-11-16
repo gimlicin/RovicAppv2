@@ -48,4 +48,16 @@ php artisan --version
 cp .env.example .env 2>/dev/null || true
 php artisan key:generate --force
 
+# Run migrations during build (only when deploying new code)
+echo "=== Running Database Migrations ==="
+php artisan migrate --force || echo "Migrations skipped"
+
+# Create storage link
+echo "=== Setting up Storage ==="
+php artisan storage:link || echo "Storage link already exists"
+
+# Cache config for better performance
+echo "=== Caching Configuration ==="
+php artisan config:cache || echo "Config caching skipped"
+
 echo "=== Build Script Completed ==="
