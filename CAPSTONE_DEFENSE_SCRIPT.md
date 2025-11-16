@@ -31,14 +31,15 @@
 ---
 
 ### **2. Customer Module + Category Module (90 seconds)**
-*"Now I'm logged in as a customer. Notice the personalized dashboard..."*
+*"Now I'm logged in as a customer. From here I can easily browse products, filter by category, and view my previous orders."*
 
 **Actions:**
-- Show customer dashboard
+- Show the main shop page after login
 - Browse product categories
 - Click through different categories (Fresh Meats, Processed Items, etc.)
+- Briefly show the My Orders page
 
-**Script:** *"The customer module provides a complete shopping experience with personalized dashboards and order tracking. Our category module organizes products dynamically with SEO-friendly URLs and intuitive browsing."*
+**Script:** *"The customer module provides a complete shopping experience with intuitive product browsing, category filtering, and an easy way for customers to review their previous orders through the My Orders page. Our category module organizes products dynamically with SEO-friendly URLs and intuitive browsing."*
 
 ---
 
@@ -80,7 +81,7 @@
 - Update order status: Confirmed → Preparing → Ready → Completed
 - Show PDF invoice generation
 
-**Script:** *"Our delivery module manages the complete order lifecycle. Administrators can approve payments, update order status, and customers receive real-time notifications. The system also generates professional PDF invoices with accurate calculations."*
+**Script:** *"From the admin side, we can open an order and see the full details — customer information, delivery or pickup option, ordered items, totals, and any uploaded payment proof. After verifying the payment, the admin can approve it and move the order through its lifecycle from Pending to Confirmed, Preparing, Ready, and Completed. At any point, the system can also generate a professional PDF invoice with accurate totals for records or printing."*
 
 ---
 

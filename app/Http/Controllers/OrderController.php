@@ -24,6 +24,7 @@ use Inertia\Inertia;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\OrdersExport;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class OrderController extends Controller
 {
@@ -193,8 +194,20 @@ class OrderController extends Controller
                 $file = $request->file('payment_proof');
                 // Validate file
                 if ($file->isValid()) {
-                    $paymentProofPath = $file->store('payment-proofs', 'public');
-                    \Log::info('✅ Payment proof uploaded successfully', ['path' => $paymentProofPath]);
+                    try {
+                        // Try Cloudinary first
+                        $uploadedFile = Cloudinary::upload($file->getRealPath(), [
+                            'folder' => 'rovic-payment-proofs',
+                            'resource_type' => 'image'
+                        ]);
+                        $paymentProofPath = $uploadedFile->getSecurePath();
+                        \Log::info('✅ Payment proof uploaded to Cloudinary', ['path' => $paymentProofPath]);
+                    } catch (\Exception $cloudinaryError) {
+                        \Log::warning('Cloudinary upload failed, using local storage', ['error' => $cloudinaryError->getMessage()]);
+                        // Fallback to local storage
+                        $paymentProofPath = $file->store('payment-proofs', 'public');
+                        \Log::info('✅ Payment proof uploaded to local storage', ['path' => $paymentProofPath]);
+                    }
                 }
             } catch (\Exception $e) {
                 \Log::warning('⚠️ Payment proof upload failed, continuing without it', ['error' => $e->getMessage()]);
@@ -721,6 +734,13 @@ class OrderController extends Controller
             abort(404, 'Payment proof not found.');
         }
 
+        // If it's a Cloudinary URL (starts with http/https), redirect to it
+        if (str_starts_with($order->payment_proof_path, 'http://') || 
+            str_starts_with($order->payment_proof_path, 'https://')) {
+            return redirect($order->payment_proof_path);
+        }
+
+        // Otherwise, it's a local file
         $path = storage_path('app/public/' . $order->payment_proof_path);
         
         if (!file_exists($path)) {

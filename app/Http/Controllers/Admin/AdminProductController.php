@@ -8,6 +8,7 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class AdminProductController extends Controller
 {
@@ -61,10 +62,21 @@ class AdminProductController extends Controller
 
         // Handle image upload
         if ($request->hasFile('image')) {
-            $image = $request->file('image');
-            $filename = time() . '_' . $image->getClientOriginalName();
-            $path = $image->storeAs('products', $filename, 'public');
-            $validated['image_url'] = '/storage/' . $path;
+            try {
+                // Upload to Cloudinary
+                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                    'folder' => 'rovic-products',
+                    'resource_type' => 'image'
+                ]);
+                $validated['image_url'] = $uploadedFile->getSecurePath();
+            } catch (\Exception $e) {
+                \Log::error('Cloudinary upload failed', ['error' => $e->getMessage()]);
+                // Fallback to local storage
+                $image = $request->file('image');
+                $filename = time() . '_' . $image->getClientOriginalName();
+                $path = $image->storeAs('products', $filename, 'public');
+                $validated['image_url'] = '/storage/' . $path;
+            }
         } elseif ($request->filled('image_url')) {
             // Keep existing image_url if provided (backward compatibility)
             $validated['image_url'] = $request->image_url;
@@ -129,16 +141,31 @@ class AdminProductController extends Controller
 
         // Handle image upload
         if ($request->hasFile('image')) {
-            // Delete old image if exists
-            if ($product->image_url && str_starts_with($product->image_url, '/storage/')) {
-                $oldPath = str_replace('/storage/', '', $product->image_url);
-                \Storage::disk('public')->delete($oldPath);
+            try {
+                // Upload to Cloudinary
+                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                    'folder' => 'rovic-products',
+                    'resource_type' => 'image'
+                ]);
+                $validated['image_url'] = $uploadedFile->getSecurePath();
+                
+                // Delete old local image if exists
+                if ($product->image_url && str_starts_with($product->image_url, '/storage/')) {
+                    $oldPath = str_replace('/storage/', '', $product->image_url);
+                    \Storage::disk('public')->delete($oldPath);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Cloudinary upload failed', ['error' => $e->getMessage()]);
+                // Fallback to local storage
+                if ($product->image_url && str_starts_with($product->image_url, '/storage/')) {
+                    $oldPath = str_replace('/storage/', '', $product->image_url);
+                    \Storage::disk('public')->delete($oldPath);
+                }
+                $image = $request->file('image');
+                $filename = time() . '_' . $image->getClientOriginalName();
+                $path = $image->storeAs('products', $filename, 'public');
+                $validated['image_url'] = '/storage/' . $path;
             }
-            
-            $image = $request->file('image');
-            $filename = time() . '_' . $image->getClientOriginalName();
-            $path = $image->storeAs('products', $filename, 'public');
-            $validated['image_url'] = '/storage/' . $path;
         } elseif ($request->filled('image_url')) {
             // Keep existing image_url if provided
             $validated['image_url'] = $request->image_url;
