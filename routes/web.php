@@ -334,28 +334,55 @@ Route::get('/test-cloudinary-config', function() {
     return response()->json($results, 200, [], JSON_PRETTY_PRINT);
 })->name('test.cloudinary.config');
 
-// View Cloudinary upload debug info
+// View Cloudinary upload debug info (HTML version for better readability)
 Route::get('/cloudinary-last-upload', function() {
     $debugFile = storage_path('cloudinary_debug.txt');
     
     if (!file_exists($debugFile)) {
-        return response()->json([
-            'message' => 'No upload attempts yet (debug file does not exist)',
-            'instructions' => 'Upload an image via admin panel, then refresh this page to see the error',
-            'file_path' => $debugFile,
-        ]);
+        return response('<h2>No debug file yet</h2><p>Upload an image first.</p>');
     }
     
-    // Read last 20 lines
-    $lines = file($debugFile);
-    $lastLines = array_slice($lines, -20);
+    // Read last 100 lines
+    $content = file_get_contents($debugFile);
+    $lines = explode("\n", $content);
+    $lastLines = array_slice($lines, -100);
     
-    return response()->json([
-        'recent_uploads' => $lastLines,
-        'total_attempts' => count($lines),
-        'file_path' => $debugFile,
-        'instructions' => 'Each upload attempt is logged here with timestamp',
-    ]);
+    // Format as HTML for better readability
+    $html = '<html><head><style>
+        body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+        h2 { color: #4ec9b0; }
+        .error { color: #f48771; background: #2d1515; padding: 10px; margin: 5px 0; border-left: 4px solid #f48771; }
+        .success { color: #4ade80; background: #1a2e1a; padding: 10px; margin: 5px 0; border-left: 4px solid #4ade80; }
+        .info { color: #60a5fa; padding: 5px; }
+        .trace { color: #888; font-size: 11px; margin-left: 20px; }
+        pre { background: #252526; padding: 10px; overflow-x: auto; }
+    </style></head><body>';
+    
+    $html .= '<h2>🔍 Cloudinary Debug Log (Last 100 Lines)</h2>';
+    
+    foreach ($lastLines as $line) {
+        if (empty(trim($line))) continue;
+        
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $line)) {
+            // Timestamp line - this is a new log entry
+            if (stripos($line, 'FAILED') !== false || stripos($line, 'ERROR') !== false) {
+                $html .= '<div class="error">' . htmlspecialchars($line) . '</div>';
+            } elseif (stripos($line, 'SUCCESS') !== false) {
+                $html .= '<div class="success">' . htmlspecialchars($line) . '</div>';
+            } else {
+                $html .= '<div class="info">' . htmlspecialchars($line) . '</div>';
+            }
+        } elseif (preg_match('/^\s+(Stack trace:|#\d+)/', $line)) {
+            // Stack trace line
+            $html .= '<div class="trace">' . htmlspecialchars($line) . '</div>';
+        } else {
+            $html .= '<div class="info">' . htmlspecialchars($line) . '</div>';
+        }
+    }
+    
+    $html .= '</body></html>';
+    
+    return response($html);
 })->name('cloudinary.last.upload');
 
 // View Laravel logs
