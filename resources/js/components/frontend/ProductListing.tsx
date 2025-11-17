@@ -280,9 +280,11 @@ const GridProductCard: React.FC<{
             </h3>
           </div>
 
-          <div className="text-sm text-gray-600 mb-2">
-            <span>{product.weight} {product.unit}</span>
-          </div>
+          {product.weight && product.weight > 0 && (
+            <div className="text-sm text-gray-600 mb-2">
+              <span>{product.weight} {product.unit}</span>
+            </div>
+          )}
         </Link>
 
         {/* Price and Stock - More Prominent */}
@@ -379,9 +381,11 @@ const ListProductCard: React.FC<{
                 {product.name}
               </h3>
             </Link>
-            <span className="text-sm text-gray-600 mt-1 block">
-              {product.weight} {product.unit}
-            </span>
+            {product.weight && product.weight > 0 && (
+              <span className="text-sm text-gray-600 mt-1 block">
+                {product.weight} {product.unit}
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-end justify-between">
             <div className="flex flex-col items-end">
