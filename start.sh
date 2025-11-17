@@ -57,6 +57,10 @@ chown -R www-data:www-data storage bootstrap/cache
 echo "Clearing Laravel config cache..."
 php artisan config:clear || echo "Config clear failed"
 
+# Cache config NOW (after DB connection is available)
+echo "Caching Laravel config..."
+php artisan config:cache || echo "Config cache failed"
+
 # Run database migrations (critical for first deploy!)
 echo "Running database migrations..."
 php artisan migrate --force || echo "Migration failed, continuing..."
