@@ -51,8 +51,20 @@ class LoginRequest extends FormRequest
             $key = $this->throttleKey();
             $attempts = $throttle->attempts($key);
             
+            \Log::info("Login throttle check", [
+                'key' => $key,
+                'attempts' => $attempts,
+                'max_attempts' => $maxAttempts,
+                'should_lockout' => $attempts >= $maxAttempts,
+            ]);
+            
             if ($attempts >= $maxAttempts) {
                 $throttle->lockout($key);
+                \Log::info("Lockout created", [
+                    'key' => $key,
+                    'lockout_count' => $throttle->lockoutCount($key),
+                    'timeout' => $throttle->availableIn($key),
+                ]);
                 $this->ensureIsNotRateLimited($throttle); // This will throw the lockout exception
             }
 

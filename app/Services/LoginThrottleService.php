@@ -21,6 +21,11 @@ class LoginThrottleService
     {
         $attempts = $this->attempts($key) + 1;
         
+        \Log::info("LoginThrottle::hit", [
+            'key' => $key,
+            'new_attempts' => $attempts,
+        ]);
+        
         // Store attempts with expiration (10 minutes after last attempt)
         Cache::put($this->attemptsKey($key), $attempts, now()->addMinutes(10));
     }
@@ -36,15 +41,25 @@ class LoginThrottleService
     }
 
     /**
-     * Check if the key has an active lockout
-     * NOTE: This should ONLY return true if there's an ACTIVE lockout
-     * Not just because attempts >= max (that check is done in LoginRequest)
+     * Check if the key is currently locked out
+     * This should ONLY return true if there's an ACTIVE lockout with time remaining
      */
     public function tooManyAttempts(string $key, int $maxAttempts = 5): bool
     {
-        // Only return true if there's an ACTIVE lockout
-        // The attempt count check is handled in LoginRequest::authenticate()
-        return Cache::has($this->availableAtKey($key));
+        $availableAt = Cache::get($this->availableAtKey($key));
+        
+        if (!$availableAt) {
+            return false; // No lockout exists
+        }
+        
+        // Check if lockout is still active
+        if ($availableAt > time()) {
+            return true; // Active lockout - user is blocked
+        }
+        
+        // Lockout expired - clean it up
+        Cache::forget($this->availableAtKey($key));
+        return false; // Lockout expired - user can try again
     }
 
     /**
@@ -77,6 +92,13 @@ class LoginThrottleService
         $totalTimeout = $baseTimeout + $additionalTimeout;
         
         $availableAt = time() + $totalTimeout;
+        
+        \Log::info("LoginThrottle::lockout", [
+            'key' => $key,
+            'lockout_count' => $lockoutCount,
+            'timeout_seconds' => $totalTimeout,
+            'available_at' => $availableAt,
+        ]);
         
         // Store lockout data
         Cache::put($this->lockoutCountKey($key), $lockoutCount, now()->addMinutes(30));
