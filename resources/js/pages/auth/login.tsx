@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { LoaderCircle, AlertCircle } from 'lucide-react';
+import { FormEventHandler, useState, useEffect } from 'react';
 const route = (window as any).route || ((name: string) => name);
 
 import InputError from '@/components/input-error';
@@ -29,8 +29,44 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         remember: false,
     });
 
+    const [countdown, setCountdown] = useState<number>(0);
+    const [isLockedOut, setIsLockedOut] = useState<boolean>(false);
+
+    // Extract lockout seconds from error message if present
+    useEffect(() => {
+        if (errors.email && typeof errors.email === 'string') {
+            const match = errors.email.match(/(\d+) seconds/);
+            if (match) {
+                const seconds = parseInt(match[1]);
+                setCountdown(seconds);
+                setIsLockedOut(true);
+            }
+        }
+    }, [errors.email]);
+
+    // Countdown timer
+    useEffect(() => {
+        if (countdown > 0) {
+            const timer = setInterval(() => {
+                setCountdown((prev) => {
+                    if (prev <= 1) {
+                        setIsLockedOut(false);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            return () => clearInterval(timer);
+        }
+    }, [countdown]);
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        
+        if (isLockedOut) {
+            return;
+        }
+        
         post('/login', {
             onFinish: () => reset('password'),
             onError: (errors) => {
@@ -53,6 +89,27 @@ export default function Login({ status, canResetPassword }: LoginProps) {
             <Head title="Log in" />
 
             <form className="flex flex-col gap-6" onSubmit={submit}>
+                {/* Lockout Warning Banner */}
+                {isLockedOut && countdown > 0 && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                        <div className="flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                            <div className="flex-1">
+                                <h3 className="font-semibold text-red-900 mb-1">Account Temporarily Locked</h3>
+                                <p className="text-sm text-red-800 mb-2">
+                                    Too many failed login attempts. Please wait before trying again.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-2xl font-bold text-red-600 tabular-nums">
+                                        {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
+                                    </div>
+                                    <span className="text-sm text-red-700">remaining</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid gap-6">
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email address</Label>
@@ -66,6 +123,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
                             placeholder="email@example.com"
+                            disabled={isLockedOut}
                         />
                         <InputError message={errors.email} />
                     </div>
@@ -88,6 +146,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
                             placeholder="Password"
+                            disabled={isLockedOut}
                         />
                         <InputError message={errors.password} />
                     </div>
@@ -99,13 +158,14 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             checked={data.remember}
                             onClick={() => setData('remember', !data.remember)}
                             tabIndex={3}
+                            disabled={isLockedOut}
                         />
                         <Label htmlFor="remember">Remember me</Label>
                     </div>
 
-                    <Button type="submit" className="mt-4 w-full" tabIndex={4} disabled={processing}>
+                    <Button type="submit" className="mt-4 w-full" tabIndex={4} disabled={processing || isLockedOut}>
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                        Log in
+                        {isLockedOut ? `Locked (${countdown}s)` : 'Log in'}
                     </Button>
 
                     {/* Social Login Options */}

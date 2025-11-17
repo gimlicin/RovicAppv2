@@ -53,6 +53,7 @@ class AdminProductController extends Controller
             'image_url' => 'nullable|string', // For backward compatibility
             'is_active' => 'boolean',
             'is_best_selling' => 'boolean',
+            'is_promo' => 'boolean',
             // Stock management fields
             'max_order_quantity' => 'nullable|integer|min:1',
             'low_stock_threshold' => 'nullable|integer|min:0',
@@ -167,10 +168,15 @@ class AdminProductController extends Controller
         // Remove 'image' from validated data as it's not a database column
         unset($validated['image']);
 
+        // Set default values for boolean fields (checkboxes don't send data when unchecked)
+        $validated['is_active'] = $request->has('is_active') ? (bool)$request->is_active : false;
+        $validated['is_best_selling'] = $request->has('is_best_selling') ? (bool)$request->is_best_selling : false;
+        $validated['is_promo'] = $request->has('is_promo') ? (bool)$request->is_promo : false;
+        
         // Set default values for stock management
         $validated['max_order_quantity'] = $validated['max_order_quantity'] ?? 100;
         $validated['low_stock_threshold'] = $validated['low_stock_threshold'] ?? 10;
-        $validated['track_stock'] = $validated['track_stock'] ?? true;
+        $validated['track_stock'] = $request->has('track_stock') ? (bool)$request->track_stock : true;
         $validated['reserved_stock'] = 0;
 
         $product = Product::create($validated);
@@ -211,6 +217,7 @@ class AdminProductController extends Controller
             'image_url' => 'nullable|string', // For backward compatibility
             'is_active' => 'boolean',
             'is_best_selling' => 'boolean',
+            'is_promo' => 'boolean',
             // Stock management fields
             'max_order_quantity' => 'nullable|integer|min:1',
             'low_stock_threshold' => 'nullable|integer|min:0',
@@ -286,6 +293,12 @@ class AdminProductController extends Controller
 
         // Remove 'image' from validated data
         unset($validated['image']);
+
+        // Set default values for boolean fields (checkboxes don't send data when unchecked)
+        $validated['is_active'] = $request->has('is_active') ? (bool)$request->is_active : false;
+        $validated['is_best_selling'] = $request->has('is_best_selling') ? (bool)$request->is_best_selling : false;
+        $validated['is_promo'] = $request->has('is_promo') ? (bool)$request->is_promo : false;
+        $validated['track_stock'] = $request->has('track_stock') ? (bool)$request->track_stock : false;
 
         // Don't allow updating reserved_stock directly - it's managed by the system
         unset($validated['reserved_stock']);

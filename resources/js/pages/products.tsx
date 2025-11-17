@@ -18,6 +18,7 @@ interface Product {
     slug: string;
   };
   is_best_seller: boolean;
+  is_promo?: boolean;
   stock_quantity: number;
   weight: number;
   unit: string;

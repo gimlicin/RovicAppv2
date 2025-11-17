@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { Star, Heart, ShoppingCart, Plus, Minus, ChevronRight, Share2 } from 'lucide-react';
+import { Star, ShoppingCart, Plus, Minus, ChevronRight } from 'lucide-react';
 import ShopFrontLayout from '@/layouts/shop-front-layout';
 import { useCart } from '@/contexts/CartContext';
 
@@ -13,6 +13,7 @@ interface Product {
   image_url: string;
   is_active: boolean;
   is_best_selling: boolean;
+  is_promo?: boolean;
   weight: number;
   unit: string;
   category: {
@@ -130,7 +131,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                 </span>
                 {product.weight && (
                   <span className="text-gray-500">
-                    ({product.weight}{product.unit})
+                    ({product.weight} {product.unit})
                   </span>
                 )}
               </div>
@@ -158,13 +159,20 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                 )}
               </div>
 
-              {/* Best Selling Badge */}
-              {product.is_best_selling && (
-                <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                  <Star className="w-4 h-4 mr-1" />
-                  Best Selling
-                </div>
-              )}
+              {/* Badges */}
+              <div className="flex flex-wrap gap-2">
+                {product.is_best_selling && (
+                  <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                    <Star className="w-4 h-4 mr-1" />
+                    Best Selling
+                  </div>
+                )}
+                {product.is_promo && (
+                  <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    PROMO
+                  </div>
+                )}
+              </div>
 
               {/* Description */}
               <div>
@@ -199,21 +207,13 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                   </div>
 
                   {/* Add to Cart Button */}
-                  <div className="flex space-x-4">
-                    <button
-                      onClick={addToCart}
-                      className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 flex items-center justify-center space-x-2"
-                    >
-                      <ShoppingCart className="w-5 h-5" />
-                      <span>Add to Cart</span>
-                    </button>
-                    <button className="p-3 border border-gray-300 rounded-lg hover:bg-gray-50">
-                      <Heart className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <button className="p-3 border border-gray-300 rounded-lg hover:bg-gray-50">
-                      <Share2 className="w-5 h-5 text-gray-600" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={addToCart}
+                    className="w-full bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 flex items-center justify-center space-x-2"
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    <span>Add to Cart</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -235,16 +235,23 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                         />
                       </div>
                       <div className="p-4">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="mb-2">
                           <span className="text-xs text-gray-500 uppercase tracking-wide">
                             {relatedProduct.category.name}
                           </span>
-                          {relatedProduct.is_best_selling && (
-                            <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                              <Star className="w-3 h-3 mr-1" />
-                              Best
-                            </div>
-                          )}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {relatedProduct.is_best_selling && (
+                              <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <Star className="w-3 h-3 mr-1" />
+                                Best
+                              </div>
+                            )}
+                            {relatedProduct.is_promo && (
+                              <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                PROMO
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <h3 className="font-medium text-gray-900 mb-2 line-clamp-2">
                           {relatedProduct.name}
@@ -261,7 +268,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                         </div>
                         {relatedProduct.weight && (
                           <p className="text-sm text-gray-500 mt-1">
-                            {relatedProduct.weight}{relatedProduct.unit}
+                            {relatedProduct.weight} {relatedProduct.unit}
                           </p>
                         )}
                       </div>

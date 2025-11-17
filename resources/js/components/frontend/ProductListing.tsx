@@ -4,7 +4,6 @@ import {
   Grid,
   List,
   ChevronDown,
-  Heart,
   ShoppingCart,
   Sliders,
   Filter,
@@ -27,12 +26,12 @@ type Product = {
     slug: string;
   };
   is_best_seller: boolean;
+  is_promo?: boolean;
   stock_quantity: number;
   weight: number;
   unit: string;
   is_active: boolean;
-  favorite?: boolean;
-};
+};  
 
 type Category = {
   id: number;
@@ -200,8 +199,7 @@ const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
 // Grid View Product Card
 const GridProductCard: React.FC<{
   product: Product;
-  onFavoriteToggle: (id: number) => void;
-}> = ({ product, onFavoriteToggle }) => {
+}> = ({ product }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { addItem, openCart } = useCart();
 
@@ -243,29 +241,17 @@ const GridProductCard: React.FC<{
               BEST SELLER
             </span>
           )}
+          {product.is_promo && (
+            <span className="px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-md">
+              PROMO
+            </span>
+          )}
           {product.stock_quantity <= 5 && product.stock_quantity > 0 && (
             <span className="px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-md">
               LOW STOCK
             </span>
           )}
         </div>
-
-        {/* Favorite button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavoriteToggle(product.id);
-          }}
-          className="absolute top-3 right-3 p-1.5 rounded-full bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200 shadow-sm z-20"
-          aria-label="Add to favorites"
-        >
-          <Heart
-            size={18}
-            className={
-              product.favorite ? "fill-red-500 text-red-500" : "text-gray-700"
-            }
-          />
-        </button>
 
         {/* Quick add to cart button */}
         <div className="absolute bottom-3 left-3 right-3 transform translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-20">
@@ -327,8 +313,7 @@ const GridProductCard: React.FC<{
 // List View Product Card
 const ListProductCard: React.FC<{
   product: Product;
-  onFavoriteToggle: (id: number) => void;
-}> = ({ product, onFavoriteToggle }) => {
+}> = ({ product }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { addItem, openCart } = useCart();
 
@@ -369,29 +354,17 @@ const ListProductCard: React.FC<{
               BEST SELLER
             </span>
           )}
+          {product.is_promo && (
+            <span className="px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-md">
+              PROMO
+            </span>
+          )}
           {product.stock_quantity <= 5 && product.stock_quantity > 0 && (
             <span className="px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-md">
               LOW STOCK
             </span>
           )}
         </div>
-
-        {/* Favorite button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavoriteToggle(product.id);
-          }}
-          className="absolute top-3 right-3 p-1.5 rounded-full bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200 shadow-sm"
-          aria-label="Add to favorites"
-        >
-          <Heart
-            size={18}
-            className={
-              product.favorite ? "fill-red-500 text-red-500" : "text-gray-700"
-            }
-          />
-        </button>
       </div>
 
       {/* Product details */}
@@ -518,12 +491,6 @@ const ProductListing = ({
     fetchData();
   }, [initialProducts, initialCategories]);
 
-  // Toggle product as favorite
-  const toggleFavorite = (id: number) => {
-    setProducts(
-      products.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p))
-    );
-  };
 
   // Filter products based on category and search
   const filteredProducts = products.filter((product) => {
@@ -709,7 +676,6 @@ const ProductListing = ({
             <GridProductCard
               key={product.id}
               product={product}
-              onFavoriteToggle={toggleFavorite}
             />
           ))}
         </div>
@@ -719,7 +685,6 @@ const ProductListing = ({
             <ListProductCard
               key={product.id}
               product={product}
-              onFavoriteToggle={toggleFavorite}
             />
           ))}
         </div>

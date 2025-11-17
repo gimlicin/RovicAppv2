@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\LoginThrottleService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -39,17 +40,28 @@ class LoginRequest extends FormRequest
      */
     public function authenticate(): void
     {
-        $this->ensureIsNotRateLimited();
+        $throttle = app(LoginThrottleService::class);
+        $this->ensureIsNotRateLimited($throttle);
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+            $throttle->hit($this->throttleKey());
+            
+            // Check if should be locked out after this failed attempt
+            $maxAttempts = 5;
+            $key = $this->throttleKey();
+            $attempts = $throttle->attempts($key);
+            
+            if ($attempts >= $maxAttempts) {
+                $throttle->lockout($key);
+                $this->ensureIsNotRateLimited($throttle); // This will throw the lockout exception
+            }
 
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
             ]);
         }
 
-        RateLimiter::clear($this->throttleKey());
+        $throttle->clear($this->throttleKey());
     }
 
     /**
@@ -57,21 +69,23 @@ class LoginRequest extends FormRequest
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function ensureIsNotRateLimited(): void
+    public function ensureIsNotRateLimited(LoginThrottleService $throttle): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (! $throttle->tooManyAttempts($this->throttleKey(), 5)) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds = $throttle->availableIn($this->throttleKey());
+        $lockoutCount = $throttle->lockoutCount($this->throttleKey());
+
+        $message = $lockoutCount === 1 
+            ? "Too many login attempts. Account locked for {$seconds} seconds (Lockout #{$lockoutCount})."
+            : "Too many login attempts. Account locked for {$seconds} seconds. This is lockout #{$lockoutCount} - the timeout increases with each failed attempt.";
 
         throw ValidationException::withMessages([
-            'email' => __('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
+            'email' => $message,
         ]);
     }
 

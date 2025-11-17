@@ -219,6 +219,23 @@ Route::prefix('auth')->group(function () {
 });
 
 // Temporary debug route - remove after fixing Cloudinary
+Route::get('/test-throttle', function () {
+    $throttle = app(\App\Services\LoginThrottleService::class);
+    $testKey = 'test_user';
+    
+    // Test basic operations
+    $throttle->hit($testKey);
+    $attempts = $throttle->attempts($testKey);
+    
+    return response()->json([
+        'cache_working' => true,
+        'attempts' => $attempts,
+        'cache_driver' => config('cache.default'),
+        'cache_store' => env('CACHE_STORE'),
+    ]);
+});
+
+// Test Cloudinary configuration
 Route::get('/debug-cloudinary', function() {
     error_log('🧪 DEBUG ENDPOINT HIT - Testing if error_log() works!');
     
