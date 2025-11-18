@@ -65,9 +65,9 @@ php artisan config:cache || echo "Config cache failed"
 echo "Running database migrations..."
 php artisan migrate --force || echo "Migration failed, continuing..."
 
-# Seed database (creates admin user and sample data)
-echo "Seeding database..."
-php artisan db:seed --force || echo "Seeding failed, continuing..."
+# NOTE: Seeders removed from auto-run
+# If you need to seed data, run manually: php artisan db:seed
+# Or run specific seeders: php artisan db:seed --class=UserSeeder
 
 # Link storage (for file uploads)
 echo "Linking storage..."

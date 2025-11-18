@@ -91,61 +91,70 @@ export default function Checkout({ cartItems, total }: CheckoutProps) {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Order Summary */}
-                        <div className="lg:col-span-1">
+                        {/* Left Column - Delivery & Payment */}
+                        <div className="lg:col-span-2">
+                            {/* Delivery Options */}
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <CreditCard className="h-5 w-5" />
-                                        Order Summary
+                                        <Truck className="h-5 w-5" />
+                                        Delivery Options
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    {cartItems.map((item, index) => (
-                                        <div key={index} className="flex justify-between items-start">
-                                            <div className="flex-1">
-                                                <h4 className="font-medium text-sm">{item.product.name}</h4>
-                                                <p className="text-xs text-gray-500">
-                                                    Qty: {item.quantity} × ₱{item.price.toFixed(2)}
-                                                </p>
-                                                {item.notes && (
-                                                    <p className="text-xs text-blue-600 mt-1">Note: {item.notes}</p>
-                                                )}
-                                            </div>
-                                            <span className="font-medium">₱{item.total.toFixed(2)}</span>
-                                        </div>
-                                    ))}
-                                    
-                                    <Separator />
-                                    
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span>Subtotal</span>
-                                            <span>₱{total.toFixed(2)}</span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="radio"
+                                                id="pickup"
+                                                name="delivery-option"
+                                                value="pickup"
+                                                checked={data.pickup_or_delivery === 'pickup'}
+                                                onChange={(e) => setData('pickup_or_delivery', 'pickup')}
+                                                className="w-4 h-4 text-blue-600"
+                                            />
+                                            <Label htmlFor="pickup" className="flex items-center gap-2">
+                                                <MapPin className="h-4 w-4" />
+                                                Store Pickup
+                                            </Label>
                                         </div>
                                         
-                                        {isSeniorCitizen && (
-                                            <div className="flex justify-between items-center text-sm text-green-600">
-                                                <span>Senior Citizen Discount (20%)</span>
-                                                <span>-₱{discountAmount.toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        
-                                        <Separator />
-                                        
-                                        <div className="flex justify-between items-center font-bold text-lg">
-                                            <span>Total</span>
-                                            <span className="text-orange-600">₱{finalTotal.toFixed(2)}</span>
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="radio"
+                                                id="delivery"
+                                                name="delivery-option"
+                                                value="delivery"
+                                                checked={data.pickup_or_delivery === 'delivery'}
+                                                onChange={(e) => setData('pickup_or_delivery', 'delivery')}
+                                                className="w-4 h-4 text-blue-600"
+                                            />
+                                            <Label htmlFor="delivery" className="flex items-center gap-2">
+                                                <Truck className="h-4 w-4" />
+                                                Home Delivery
+                                            </Label>
                                         </div>
-                                        
-                                        {isSeniorCitizen && (
-                                            <Alert className="mt-3 bg-amber-50 border-amber-200">
-                                                <AlertDescription className="text-xs text-amber-800">
-                                                    📋 <strong>Important:</strong> Please present valid Senior Citizen ID upon delivery/pickup for verification.
-                                                </AlertDescription>
-                                            </Alert>
-                                        )}
                                     </div>
+
+                                    {data.pickup_or_delivery === 'delivery' && (
+                                        <div>
+                                            <Label htmlFor="delivery-address" className="flex items-center gap-2">
+                                                <MapPin className="h-4 w-4" />
+                                                Delivery Address *
+                                            </Label>
+                                            <textarea
+                                                id="delivery-address"
+                                                value={data.delivery_address}
+                                                onChange={(e) => setData('delivery_address', e.target.value)}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                rows={3}
+                                                placeholder="Enter your complete delivery address"
+                                            />
+                                            {errors.delivery_address && (
+                                                <p className="text-red-500 text-sm mt-1">{errors.delivery_address}</p>
+                                            )}
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -272,74 +281,66 @@ export default function Checkout({ cartItems, total }: CheckoutProps) {
                             </Card>
                         </div>
 
-                        {/* Order Details Form */}
-                        <div className="lg:col-span-2">
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                {/* Delivery Options */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Truck className="h-5 w-5" />
-                                            Delivery Options
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="flex items-center space-x-2">
-                                                <input
-                                                    type="radio"
-                                                    id="pickup"
-                                                    name="delivery-option"
-                                                    value="pickup"
-                                                    checked={data.pickup_or_delivery === 'pickup'}
-                                                    onChange={(e) => setData('pickup_or_delivery', 'pickup')}
-                                                    className="w-4 h-4 text-blue-600"
-                                                />
-                                                <Label htmlFor="pickup" className="flex items-center gap-2">
-                                                    <MapPin className="h-4 w-4" />
-                                                    Store Pickup
-                                                </Label>
-                                            </div>
-                                            
-                                            <div className="flex items-center space-x-2">
-                                                <input
-                                                    type="radio"
-                                                    id="delivery"
-                                                    name="delivery-option"
-                                                    value="delivery"
-                                                    checked={data.pickup_or_delivery === 'delivery'}
-                                                    onChange={(e) => setData('pickup_or_delivery', 'delivery')}
-                                                    className="w-4 h-4 text-blue-600"
-                                                />
-                                                <Label htmlFor="delivery" className="flex items-center gap-2">
-                                                    <Truck className="h-4 w-4" />
-                                                    Home Delivery
-                                                </Label>
-                                            </div>
-                                        </div>
-
-                                        {data.pickup_or_delivery === 'delivery' && (
-                                            <div>
-                                                <Label htmlFor="delivery-address" className="flex items-center gap-2">
-                                                    <MapPin className="h-4 w-4" />
-                                                    Delivery Address *
-                                                </Label>
-                                                <textarea
-                                                    id="delivery-address"
-                                                    value={data.delivery_address}
-                                                    onChange={(e) => setData('delivery_address', e.target.value)}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                    rows={3}
-                                                    placeholder="Enter your complete delivery address"
-                                                />
-                                                {errors.delivery_address && (
-                                                    <p className="text-red-500 text-sm mt-1">{errors.delivery_address}</p>
+                        {/* Right Column - Summary & Customer Info */}
+                        <div className="lg:col-span-1">
+                            {/* Order Summary */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <CreditCard className="h-5 w-5" />
+                                        Order Summary
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {cartItems.map((item, index) => (
+                                        <div key={index} className="flex justify-between items-start">
+                                            <div className="flex-1">
+                                                <h4 className="font-medium text-sm">{item.product.name}</h4>
+                                                <p className="text-xs text-gray-500">
+                                                    Qty: {item.quantity} × ₱{item.price.toFixed(2)}
+                                                </p>
+                                                {item.notes && (
+                                                    <p className="text-xs text-blue-600 mt-1">Note: {item.notes}</p>
                                                 )}
                                             </div>
+                                            <span className="font-medium">₱{item.total.toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                    
+                                    <Separator />
+                                    
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span>Subtotal</span>
+                                            <span>₱{total.toFixed(2)}</span>
+                                        </div>
+                                        
+                                        {isSeniorCitizen && (
+                                            <div className="flex justify-between items-center text-sm text-green-600">
+                                                <span>Senior Citizen Discount (20%)</span>
+                                                <span>-₱{discountAmount.toFixed(2)}</span>
+                                            </div>
                                         )}
-                                    </CardContent>
-                                </Card>
+                                        
+                                        <Separator />
+                                        
+                                        <div className="flex justify-between items-center font-bold text-lg">
+                                            <span>Total</span>
+                                            <span className="text-orange-600">₱{finalTotal.toFixed(2)}</span>
+                                        </div>
+                                        
+                                        {isSeniorCitizen && (
+                                            <Alert className="mt-3 bg-amber-50 border-amber-200">
+                                                <AlertDescription className="text-xs text-amber-800">
+                                                    📋 <strong>Important:</strong> Please present valid Senior Citizen ID upon delivery/pickup for verification.
+                                                </AlertDescription>
+                                            </Alert>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
 
+                            <form onSubmit={handleSubmit} className="space-y-6 mt-6">
                                 {/* Customer Information */}
                                 <Card>
                                     <CardHeader>
