@@ -7,6 +7,7 @@ use App\Models\PaymentSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Cloudinary\Api\Upload\UploadApi as CloudinaryAPI;
 
 class PaymentSettingController extends Controller
 {
@@ -50,15 +51,42 @@ class PaymentSettingController extends Controller
             'display_order' => 'integer',
         ]);
 
-        // Handle QR code upload
-        $qrCodePath = null;
+        // Handle QR code upload to Cloudinary
+        $qrCodeUrl = null;
         if ($request->hasFile('qr_code')) {
-            $qrCodePath = $request->file('qr_code')->store('qr_codes', 'public');
+            try {
+                // Upload to Cloudinary
+                $cloudinary = new CloudinaryAPI([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                ]);
+                
+                $uploadResult = $cloudinary->upload($request->file('qr_code')->getRealPath(), [
+                    'folder' => 'rovic_meatshop/qr_codes',
+                    'transformation' => [
+                        'quality' => 'auto',
+                        'fetch_format' => 'auto',
+                    ],
+                ]);
+                
+                $qrCodeUrl = $uploadResult['secure_url'];
+                error_log('✅ QR Code uploaded to Cloudinary: ' . $qrCodeUrl);
+            } catch (\Exception $e) {
+                error_log('❌ Cloudinary upload failed for QR code: ' . $e->getMessage());
+                
+                // Fallback to local storage
+                $qrCodePath = $request->file('qr_code')->store('qr_codes', 'public');
+                $qrCodeUrl = Storage::url($qrCodePath);
+                error_log('⚠️ QR Code stored locally as fallback: ' . $qrCodeUrl);
+            }
         }
 
         PaymentSetting::create([
             'payment_method' => $validated['payment_method'],
-            'qr_code_path' => $qrCodePath,
+            'qr_code_path' => $qrCodeUrl, // Now stores URL instead of path
             'account_name' => $validated['account_name'] ?? null,
             'account_number' => $validated['account_number'] ?? null,
             'instructions' => $validated['instructions'] ?? null,
@@ -84,19 +112,51 @@ class PaymentSettingController extends Controller
             'display_order' => 'integer',
         ]);
 
-        // Handle QR code upload
+        // Handle QR code upload to Cloudinary
+        $qrCodeUrl = $paymentSetting->qr_code_path; // Keep existing URL by default
+        
         if ($request->hasFile('qr_code')) {
-            // Delete old QR code if exists
-            if ($paymentSetting->qr_code_path && Storage::disk('public')->exists($paymentSetting->qr_code_path)) {
-                Storage::disk('public')->delete($paymentSetting->qr_code_path);
+            try {
+                // Upload new QR code to Cloudinary
+                $cloudinary = new CloudinaryAPI([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                ]);
+                
+                $uploadResult = $cloudinary->upload($request->file('qr_code')->getRealPath(), [
+                    'folder' => 'rovic_meatshop/qr_codes',
+                    'transformation' => [
+                        'quality' => 'auto',
+                        'fetch_format' => 'auto',
+                    ],
+                ]);
+                
+                $qrCodeUrl = $uploadResult['secure_url'];
+                error_log('✅ QR Code updated on Cloudinary: ' . $qrCodeUrl);
+                
+                // Note: Old Cloudinary image will remain but that's okay
+                // Cloudinary has storage management tools to clean up unused images
+            } catch (\Exception $e) {
+                error_log('❌ Cloudinary upload failed for QR code update: ' . $e->getMessage());
+                
+                // Fallback to local storage
+                // Delete old local file if exists
+                if ($paymentSetting->qr_code_path && Storage::disk('public')->exists($paymentSetting->qr_code_path)) {
+                    Storage::disk('public')->delete($paymentSetting->qr_code_path);
+                }
+                
+                $qrCodePath = $request->file('qr_code')->store('qr_codes', 'public');
+                $qrCodeUrl = Storage::url($qrCodePath);
+                error_log('⚠️ QR Code stored locally as fallback: ' . $qrCodeUrl);
             }
-
-            $validated['qr_code_path'] = $request->file('qr_code')->store('qr_codes', 'public');
         }
 
         $paymentSetting->update([
             'payment_method' => $validated['payment_method'],
-            'qr_code_path' => $validated['qr_code_path'] ?? $paymentSetting->qr_code_path,
+            'qr_code_path' => $qrCodeUrl,
             'account_name' => $validated['account_name'] ?? null,
             'account_number' => $validated['account_number'] ?? null,
             'instructions' => $validated['instructions'] ?? null,
@@ -112,8 +172,11 @@ class PaymentSettingController extends Controller
      */
     public function destroy(PaymentSetting $paymentSetting)
     {
-        // Delete QR code file if exists
-        if ($paymentSetting->qr_code_path && Storage::disk('public')->exists($paymentSetting->qr_code_path)) {
+        // Delete QR code file if it's stored locally
+        // If it's a Cloudinary URL, we'll leave it (Cloudinary can manage storage)
+        if ($paymentSetting->qr_code_path && 
+            !str_contains($paymentSetting->qr_code_path, 'cloudinary.com') &&
+            Storage::disk('public')->exists($paymentSetting->qr_code_path)) {
             Storage::disk('public')->delete($paymentSetting->qr_code_path);
         }
 
@@ -135,7 +198,7 @@ class PaymentSettingController extends Controller
     }
 
     /**
-     * Serve QR code image file
+     * Serve or redirect to QR code image
      */
     public function viewQrCode(PaymentSetting $paymentSetting)
     {
@@ -143,6 +206,24 @@ class PaymentSettingController extends Controller
             abort(404, 'QR code not found.');
         }
 
+        // If it's a Cloudinary URL, redirect to it
+        if (str_contains($paymentSetting->qr_code_path, 'cloudinary.com')) {
+            return redirect($paymentSetting->qr_code_path);
+        }
+        
+        // If it's a local storage URL, serve the file
+        if (str_starts_with($paymentSetting->qr_code_path, '/storage/')) {
+            $relativePath = str_replace('/storage/', '', $paymentSetting->qr_code_path);
+            $path = storage_path('app/public/' . $relativePath);
+            
+            if (!file_exists($path)) {
+                abort(404, 'QR code file not found.');
+            }
+            
+            return response()->file($path);
+        }
+        
+        // If it's a relative path (old format), try to serve it
         $path = storage_path('app/public/' . $paymentSetting->qr_code_path);
         
         if (!file_exists($path)) {
