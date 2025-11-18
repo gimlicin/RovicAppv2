@@ -139,15 +139,92 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                 <div className="max-w-7xl mx-auto px-4">
                     <h1 className="text-3xl font-bold mb-6">Checkout</h1>
 
-                    {/* 2-Column Layout */}
+                    {/* 3-Column Layout - Inspired by The Good Meats */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Left Column - Delivery & Payment */}
-                        <div className="lg:col-span-2 space-y-6">
+                        {/* Column 1 - Order Summary */}
+                        <div className="lg:col-span-1">
+                            {/* Order Summary */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 sticky top-8">
+                                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2">
+                                    <span className="text-2xl">🛍️</span> Order Summary
+                                </h2>
+                                
+                                {/* Order Items */}
+                                <div className="space-y-4 mb-5">
+                                    {cartItems.map((item, index) => (
+                                        <div key={index} className="flex gap-3 py-3 border-b last:border-0">
+                                            {/* Product Image */}
+                                            {item.product.image_url && (
+                                                <img
+                                                    src={item.product.image_url}
+                                                    alt={item.product.name}
+                                                    className="w-16 h-16 object-cover rounded-lg"
+                                                />
+                                            )}
+                                            {/* Product Details */}
+                                            <div className="flex-1">
+                                                <h4 className="font-medium text-sm leading-tight">{item.product.name}</h4>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    {item.quantity} × ₱{Number(item.price).toFixed(2)}
+                                                </p>
+                                                <p className="text-sm font-semibold text-orange-600 mt-1">
+                                                    ₱{Number(item.total).toFixed(2)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {/* Summary Calculations */}
+                                <div className="space-y-3 pt-5 border-t">
+                                    <div className="flex justify-between items-center text-base">
+                                        <span className="text-gray-600">Subtotal</span>
+                                        <span className="font-semibold">₱{Number(total).toFixed(2)}</span>
+                                    </div>
+                                    
+                                    {isSeniorCitizen && (
+                                        <div className="flex justify-between items-center text-base">
+                                            <span className="text-green-600">Senior Discount (20%)</span>
+                                            <span className="font-semibold text-green-600">-₱{discountAmount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="border-t pt-3"></div>
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-lg font-bold">Total</span>
+                                        <span className="text-2xl font-bold text-orange-600">₱{finalTotal.toFixed(2)}</span>
+                                    </div>
+                                    
+                                    {isSeniorCitizen && (
+                                        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                            <p className="text-sm text-amber-800">
+                                                📋 <strong>Note:</strong> Present valid Senior Citizen ID upon delivery/pickup
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Secure Checkout Badge */}
+                                <div className="mt-6 pt-6 border-t">
+                                    <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                        <span>Secure Checkout</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* End Column 1 */}
+
+                        {/* Column 2 - Delivery & Payment */}
+                        <div className="lg:col-span-1 space-y-6">
                             {/* Delivery Options */}
                             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                            <span className="text-2xl">🚚</span> Delivery Options
-                        </h2>
+                                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">🚚</span> Delivery Options
+                                </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                                 data.pickup_or_delivery === 'pickup' 
@@ -395,85 +472,12 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                             </div>
                         </div>
                         </div>
-                    {/* End Left Column */}
+                        {/* End Column 2 */}
 
-                    {/* Right Column - Summary & Customer Info */}
-                    <div className="lg:col-span-1 space-y-6">
-                        {/* Order Summary */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 sticky top-8">
-                            <h2 className="text-xl font-semibold mb-5 flex items-center gap-2">
-                                <span className="text-2xl">🛍️</span> Order Summary
-                            </h2>
-                            
-                            {/* Order Items */}
-                            <div className="space-y-4 mb-5">
-                                {cartItems.map((item, index) => (
-                                    <div key={index} className="flex gap-3 py-3 border-b last:border-0">
-                                        {/* Product Image */}
-                                        {item.product.image_url && (
-                                            <img
-                                                src={item.product.image_url}
-                                                alt={item.product.name}
-                                                className="w-16 h-16 object-cover rounded-lg"
-                                            />
-                                        )}
-                                        {/* Product Details */}
-                                        <div className="flex-1">
-                                            <h4 className="font-medium text-sm leading-tight">{item.product.name}</h4>
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                {item.quantity} × ₱{Number(item.price).toFixed(2)}
-                                            </p>
-                                            <p className="text-sm font-semibold text-orange-600 mt-1">
-                                                ₱{Number(item.total).toFixed(2)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            {/* Summary Calculations */}
-                            <div className="space-y-3 pt-5 border-t">
-                                <div className="flex justify-between items-center text-base">
-                                    <span className="text-gray-600">Subtotal</span>
-                                    <span className="font-semibold">₱{Number(total).toFixed(2)}</span>
-                                </div>
-                                
-                                {isSeniorCitizen && (
-                                    <div className="flex justify-between items-center text-base">
-                                        <span className="text-green-600">Senior Discount (20%)</span>
-                                        <span className="font-semibold text-green-600">-₱{discountAmount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                
-                                <div className="border-t pt-3"></div>
-                                
-                                <div className="flex justify-between items-center">
-                                    <span className="text-lg font-bold">Total</span>
-                                    <span className="text-2xl font-bold text-orange-600">₱{finalTotal.toFixed(2)}</span>
-                                </div>
-                                
-                                {isSeniorCitizen && (
-                                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                        <p className="text-sm text-amber-800">
-                                            📋 <strong>Note:</strong> Present valid Senior Citizen ID upon delivery/pickup
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Secure Checkout Badge */}
-                            <div className="mt-6 pt-6 border-t">
-                                <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                    <span>Secure Checkout</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Customer Form */}
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        {/* Column 3 - Customer Info & Place Order */}
+                        <div className="lg:col-span-1">
+                            {/* Customer Form */}
+                            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                                 <span className="text-2xl">👤</span> Customer Information
                             </h2>
@@ -690,10 +694,10 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                             </form>
                         </div>
                     </div>
-                    {/* End Right Column */}
+                    {/* End Column 3 */}
 
                 </div>
-                {/* End 2-Column Grid & Container */}
+                {/* End 3-Column Grid - Inspired by The Good Meats */}
             </div>
             {/* End Background */}
         </ShopFrontLayout>
