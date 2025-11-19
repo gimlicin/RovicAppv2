@@ -53,12 +53,21 @@ mkdir -p storage/logs storage/framework/{sessions,views,cache} storage/app/publi
 chmod -R 775 storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 
-# CRITICAL: Clear config cache so Laravel reads fresh environment variables
-echo "Clearing Laravel config cache..."
+# CRITICAL: Clear ALL caches so Laravel reads fresh environment variables
+echo "Clearing ALL Laravel caches..."
 php artisan config:clear || echo "Config clear failed"
+php artisan cache:clear || echo "Cache clear failed"
+php artisan route:clear || echo "Route clear failed"
+php artisan view:clear || echo "View clear failed"
+
+# Remove any .env file that might have been accidentally committed
+if [ -f ".env" ]; then
+    echo "WARNING: .env file found in deployment, removing it..."
+    rm .env
+fi
 
 # Cache config NOW (after DB connection is available)
-echo "Caching Laravel config..."
+echo "Caching Laravel config with fresh env vars..."
 php artisan config:cache || echo "Config cache failed"
 
 # Run database migrations (critical for first deploy!)
