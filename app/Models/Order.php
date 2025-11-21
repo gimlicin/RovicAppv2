@@ -14,7 +14,7 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'status',
-        'total_amount', // If this fails, try changing to 'total_price'
+        'total_price', // FIXED: Database column is 'total_price' not 'total_amount'
         'pickup_or_delivery',
         'notes',
         'customer_name',
@@ -42,7 +42,7 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'total_amount' => 'decimal:2',
+        'total_price' => 'decimal:2', // FIXED: Match database column name
         'scheduled_date' => 'datetime',
         'is_bulk_order' => 'boolean',
         'is_senior_citizen' => 'boolean',
@@ -328,8 +328,8 @@ class Order extends Model
     public function getSubtotalAttribute(): float
     {
         if ($this->hasSeniorDiscount() && $this->discount_amount > 0) {
-            return $this->total_amount + $this->discount_amount;
+            return $this->total_price + $this->discount_amount;
         }
-        return $this->total_amount;
+        return $this->total_price;
     }
 }
