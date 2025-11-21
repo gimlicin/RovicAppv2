@@ -431,7 +431,7 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                                 {/* Payment Proof Upload - Only show for non-cash payments */}
                                 {data.payment_method !== 'cash' && selectedPaymentMethod !== null && (
                                     <div className="p-5 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-                                        <label className="block text-base font-semibold mb-2 flex items-center gap-2">
+                                        <label className="flex items-center gap-2 text-base font-semibold mb-2">
                                             📤 Upload Payment Proof *
                                         </label>
                                         <p className="text-sm text-gray-600 mb-3">
