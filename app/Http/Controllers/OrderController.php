@@ -279,16 +279,54 @@ class OrderController extends Controller
                 // - is_senior_citizen, is_bulk_order
             ];
             
+            // DEBUG: Log order data BEFORE creating order
+            \Log::info('🔍 ORDER DATA BEFORE CREATE', [
+                'orderData' => $orderData,
+                'has_payment_proof' => !empty($paymentProofPath),
+                'payment_proof_path' => $paymentProofPath
+            ]);
+            
             // If payment proof was uploaded, add to order data
             if ($paymentProofPath) {
-                $orderData['payment_proof_path'] = $paymentProofPath;
+                \Log::info('💳 Adding payment proof to order data');
+                
+                // ULTRA-SAFE: Only add fields we're 100% sure exist
+                try {
+                    $orderData['payment_proof_path'] = $paymentProofPath;
+                    \Log::info('✅ Added payment_proof_path');
+                } catch (\Exception $e) {
+                    \Log::error('❌ Could not add payment_proof_path', ['error' => $e->getMessage()]);
+                }
+                
+                // Change status to submitted
                 $orderData['payment_status'] = Order::PAYMENT_STATUS_SUBMITTED;
-                $orderData['payment_submitted_at'] = now();
+                \Log::info('✅ Changed payment_status to SUBMITTED');
+                
+                // REMOVED: payment_submitted_at - may not exist in production database
+                
+                \Log::info('💳 Payment proof fields added', [
+                    'payment_proof_path' => $paymentProofPath,
+                    'payment_status' => Order::PAYMENT_STATUS_SUBMITTED
+                ]);
             }
             
+            // DEBUG: Final order data
+            \Log::info('🔍 FINAL ORDER DATA', ['orderData' => $orderData]);
+            
             // CRITICAL: Create the order (this was missing!)
-            $order = Order::create($orderData);
-            \Log::info('✅ Order created successfully', ['order_id' => $order->id]);
+            try {
+                \Log::info('📝 Attempting to create order in database...');
+                $order = Order::create($orderData);
+                \Log::info('✅ Order created successfully', ['order_id' => $order->id]);
+            } catch (\Exception $dbError) {
+                \Log::error('❌ DATABASE ERROR CREATING ORDER', [
+                    'error_message' => $dbError->getMessage(),
+                    'error_code' => $dbError->getCode(),
+                    'order_data_keys' => array_keys($orderData),
+                    'order_data' => $orderData
+                ]);
+                throw $dbError; // Re-throw to see full error
+            }
             
             // Create order items for demo purposes
             foreach ($processedItems as $item) {
