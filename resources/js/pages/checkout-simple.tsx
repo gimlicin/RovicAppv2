@@ -89,19 +89,16 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
             notes: item.notes || null
         }));
         
-        // Prepare delivery address
-        const deliveryAddress = data.pickup_or_delivery === 'delivery' 
-            ? `${data.delivery_address}, ${data.delivery_barangay}, ${data.delivery_city}` 
-            : '';
-        
         // Prepare complete form data with cart items
         const submitData = {
             ...data,
             cart_items: formattedCartItems,
-            delivery_address: deliveryAddress,
+            delivery_address: data.pickup_or_delivery === 'delivery' ? data.delivery_address : '',
+            delivery_barangay: data.pickup_or_delivery === 'delivery' ? data.delivery_barangay : '',
+            delivery_city: data.pickup_or_delivery === 'delivery' ? data.delivery_city : '',
+            delivery_instructions: data.pickup_or_delivery === 'delivery' ? data.delivery_instructions : '',
             customer_email: data.customer_email || '',
             notes: data.notes || '',
-            delivery_instructions: data.pickup_or_delivery === 'delivery' ? data.delivery_instructions : '',
             _token: props.csrf_token || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '', // Fresh CSRF token from Inertia props
         };
         
