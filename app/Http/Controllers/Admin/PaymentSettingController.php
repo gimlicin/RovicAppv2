@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentSetting;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -31,7 +32,7 @@ class PaymentSettingController extends Controller
             ];
         });
 
-        return Inertia::render('Admin/Settings/PaymentSettings', [
+        return Inertia::render('SuperAdmin/Settings/PaymentSettings', [
             'settings' => $settings,
         ]);
     }
@@ -84,7 +85,7 @@ class PaymentSettingController extends Controller
             }
         }
 
-        PaymentSetting::create([
+        $setting = PaymentSetting::create([
             'payment_method' => $validated['payment_method'],
             'qr_code_path' => $qrCodeUrl, // Now stores URL instead of path
             'account_name' => $validated['account_name'] ?? null,
@@ -93,6 +94,12 @@ class PaymentSettingController extends Controller
             'is_active' => $validated['is_active'] ?? true,
             'display_order' => $validated['display_order'] ?? 0,
         ]);
+
+        ActivityLogger::log(
+            'payment_setting_created',
+            "Created payment setting: {$setting->payment_method}",
+            $setting
+        );
 
         return redirect()->back()->with('success', 'Payment setting created successfully.');
     }
@@ -164,6 +171,12 @@ class PaymentSettingController extends Controller
             'display_order' => $validated['display_order'] ?? $paymentSetting->display_order,
         ]);
 
+        ActivityLogger::log(
+            'payment_setting_updated',
+            "Updated payment setting: {$paymentSetting->payment_method}",
+            $paymentSetting
+        );
+
         return redirect()->back()->with('success', 'Payment setting updated successfully.');
     }
 
@@ -180,7 +193,14 @@ class PaymentSettingController extends Controller
             Storage::disk('public')->delete($paymentSetting->qr_code_path);
         }
 
+        $method = $paymentSetting->payment_method;
         $paymentSetting->delete();
+
+        ActivityLogger::log(
+            'payment_setting_deleted',
+            "Deleted payment setting: {$method}",
+            $paymentSetting
+        );
 
         return redirect()->back()->with('success', 'Payment setting deleted successfully.');
     }
@@ -193,6 +213,12 @@ class PaymentSettingController extends Controller
         $paymentSetting->update([
             'is_active' => !$paymentSetting->is_active,
         ]);
+
+        ActivityLogger::log(
+            'payment_setting_toggle_active',
+            ($paymentSetting->is_active ? 'Activated payment setting: ' : 'Deactivated payment setting: ') . $paymentSetting->payment_method,
+            $paymentSetting
+        );
 
         return redirect()->back()->with('success', 'Payment setting status updated.');
     }

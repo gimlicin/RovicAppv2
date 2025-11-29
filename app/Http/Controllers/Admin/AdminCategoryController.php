@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -22,7 +23,7 @@ class AdminCategoryController extends Controller
             'total_products' => Category::withCount('products')->get()->sum('products_count'),
         ];
 
-        return Inertia::render('Admin/Categories/Index', [
+        return Inertia::render('SuperAdmin/Categories/Index', [
             'categories' => $categories,
             'stats' => $stats,
         ]);
@@ -30,7 +31,7 @@ class AdminCategoryController extends Controller
 
     public function create()
     {
-        return Inertia::render('Admin/Categories/Create');
+        return Inertia::render('SuperAdmin/Categories/Create');
     }
 
     public function store(Request $request)
@@ -52,9 +53,15 @@ class AdminCategoryController extends Controller
 
         $validated['slug'] = $slug;
 
-        Category::create($validated);
+        $category = Category::create($validated);
 
-        return redirect()->route('admin.categories.index')
+        ActivityLogger::log(
+            'category_created',
+            "Created category: {$category->name}",
+            $category
+        );
+
+        return redirect()->route('super-admin.categories.index')
             ->with('success', 'Category created successfully.');
     }
 
@@ -95,7 +102,13 @@ class AdminCategoryController extends Controller
 
         $category->update($validated);
 
-        return redirect()->route('admin.categories.index')
+        ActivityLogger::log(
+            'category_updated',
+            "Updated category: {$category->name}",
+            $category
+        );
+
+        return redirect()->route('super-admin.categories.index')
             ->with('success', 'Category updated successfully.');
     }
 
@@ -106,9 +119,16 @@ class AdminCategoryController extends Controller
             return back()->with('error', 'Cannot delete category with existing products.');
         }
 
+        $name = $category->name;
         $category->delete();
 
-        return redirect()->route('admin.categories.index')
+        ActivityLogger::log(
+            'category_deleted',
+            "Deleted category: {$name}",
+            $category
+        );
+
+        return redirect()->route('super-admin.categories.index')
             ->with('success', 'Category deleted successfully.');
     }
 
@@ -117,6 +137,12 @@ class AdminCategoryController extends Controller
         $category->update([
             'is_active' => !$category->is_active
         ]);
+
+        ActivityLogger::log(
+            'category_toggle_active',
+            ($category->is_active ? 'Activated category: ' : 'Deactivated category: ') . $category->name,
+            $category
+        );
 
         return back()->with('success', 'Category status updated.');
     }

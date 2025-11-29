@@ -20,7 +20,9 @@ class AdminMiddleware
             return redirect()->route('login');
         }
 
-        if (!auth()->user()->isAdmin()) {
+        // Allow both admin and super_admin roles
+        $user = auth()->user();
+        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
             abort(403, 'Access denied. Admin privileges required.');
         }
 

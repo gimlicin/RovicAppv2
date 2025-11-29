@@ -35,6 +35,7 @@ interface CheckoutProps {
 export default function CheckoutSimple({ cartItems, total, paymentSettings = [] }: CheckoutProps) {
     const { props } = usePage<any>();
     const [paymentProof, setPaymentProof] = useState<File | null>(null);
+    const [fileInputKey, setFileInputKey] = useState(0);
     const [isSeniorCitizen, setIsSeniorCitizen] = useState<boolean>(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<number | null>(null); // Default to cash (null)
     const [showInstructions, setShowInstructions] = useState<boolean>(false);
@@ -51,6 +52,7 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
         notes: '',
         payment_method: 'cash', // Default to cash payment
         payment_proof: null as File | null,
+        payment_reference: '',
         cart_items: [] as any[],
         pickup_or_delivery: 'pickup',
         delivery_address: '',
@@ -68,6 +70,12 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
             setPaymentProof(file);
             setData('payment_proof', file);
         }
+    };
+
+    const handleRemovePaymentProof = () => {
+        setPaymentProof(null);
+        setData('payment_proof', null);
+        setFileInputKey((prev) => prev + 1);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -438,19 +446,46 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                                             Please upload a screenshot or photo of your payment confirmation
                                         </p>
                                         <input
+                                            key={fileInputKey}
                                             type="file"
                                             accept="image/*"
                                             onChange={handlePaymentProofChange}
                                             className="w-full text-sm p-3 border rounded-lg bg-white"
+                                            style={{ display: paymentProof ? 'none' : 'block' }}
                                         />
                                         {errors.payment_proof && (
                                             <p className="text-red-500 text-sm mt-1">{errors.payment_proof}</p>
                                         )}
                                         {paymentProof && (
-                                            <p className="text-green-600 text-sm mt-2 flex items-center gap-1">
-                                                ✓ {paymentProof.name}
-                                            </p>
+                                            <div className="mt-2 flex items-center justify-between text-sm p-3 border rounded-lg bg-white">
+                                                <span className="text-gray-800 truncate">{paymentProof.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRemovePaymentProof}
+                                                    className="text-red-600 hover:underline text-xs ml-3 whitespace-nowrap"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
                                         )}
+
+                                        {/* Payment Reference Number */}
+                                        <div className="mt-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Payment Reference Number *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={data.payment_reference}
+                                                onChange={(e) => setData('payment_reference', e.target.value)}
+                                                className="w-full text-sm p-3 border rounded-lg bg-white"
+                                                placeholder="e.g. GCash / bank transaction reference"
+                                                required={data.payment_method !== 'cash'}
+                                            />
+                                            {errors.payment_reference && (
+                                                <p className="text-red-500 text-sm mt-1">{errors.payment_reference}</p>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 
@@ -498,6 +533,7 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                                         <label className="block text-xs font-medium mb-1">Phone Number * (11 digits)</label>
                                         <input
                                             type="tel"
+                                            inputMode="numeric"
                                             value={data.customer_phone}
                                             onChange={(e) => {
                                                 const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
@@ -506,6 +542,8 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
                                             className="w-full p-2 text-sm border rounded-lg"
                                             placeholder="09XXXXXXXXX"
                                             maxLength={11}
+                                            pattern="[0-9]{11}"
+                                            title="Phone number must be exactly 11 digits."
                                         />
                                         {errors.customer_phone && (
                                             <p className="text-red-500 text-xs mt-0.5">{errors.customer_phone}</p>
@@ -673,15 +711,20 @@ export default function CheckoutSimple({ cartItems, total, paymentSettings = [] 
 
                                 <button
                                     type="submit"
-                                    disabled={processing || ((data.payment_method !== 'cash' && data.payment_method !== null) && !paymentProof) || !data.terms_accepted}
+                                    disabled={
+                                        processing ||
+                                        ((data.payment_method !== 'cash' && data.payment_method !== null) && (!paymentProof || !data.payment_reference.trim())) ||
+                                        !data.terms_accepted
+                                    }
                                     className="w-full bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors shadow-md"
                                 >
                                     {processing ? '⏳ Processing Your Order...' : '🛒 Place Order'}
                                 </button>
                                 
-                                {(((data.payment_method !== 'cash' && !paymentProof) || !data.terms_accepted) && (
+                                {(((data.payment_method !== 'cash' && (!paymentProof || !data.payment_reference.trim())) || !data.terms_accepted) && (
                                     <div className="text-sm text-gray-500 text-center space-y-1">
                                         {data.payment_method !== 'cash' && !paymentProof && <p>Please upload payment proof to continue</p>}
+                                        {data.payment_method !== 'cash' && paymentProof && !data.payment_reference.trim() && <p>Please enter the payment reference number to continue</p>}
                                         {!data.terms_accepted && <p>Please accept the terms and conditions to continue</p>}
                                     </div>
                                 ))}

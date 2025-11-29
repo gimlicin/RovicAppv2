@@ -27,6 +27,7 @@ interface Order {
     pickup_or_delivery: string;
     payment_method: string;
     payment_status: string;
+    payment_reference?: string | null;
     notes?: string;
     created_at: string;
     order_items: OrderItem[];
@@ -145,6 +146,12 @@ export default function OrderConfirmation() {
                                             <span className="text-sm font-medium text-gray-500 w-20">Payment:</span>
                                             <span className="text-sm text-gray-900 capitalize">{order.payment_method === 'qr' ? 'QR Code' : 'Cash'}</span>
                                         </div>
+                                        {order.payment_reference && (
+                                            <div className="flex items-start">
+                                                <span className="text-sm font-medium text-gray-500 w-20">Reference:</span>
+                                                <span className="text-sm text-gray-900 break-all">{order.payment_reference}</span>
+                                            </div>
+                                        )}
                                         <div className="flex items-start">
                                             <span className="text-sm font-medium text-gray-500 w-20">Total:</span>
                                             <span className="text-lg font-semibold text-green-600">₱{Number(order.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
@@ -220,12 +227,6 @@ export default function OrderConfirmation() {
 
                     {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link
-                            href="/track-order"
-                            className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                        >
-                            Track This Order
-                        </Link>
                         <Link
                             href="/"
                             className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"

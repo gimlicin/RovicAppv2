@@ -5,13 +5,13 @@ export default function ShopFooter() {
   const currentYear = new Date().getFullYear();
   
   return (
-    <footer className="w-full bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+    <footer className="w-full text-white border-t border-orange-500/70 bg-linear-to-t from-slate-950 via-slate-900 to-slate-950">
       <div className="container mx-auto px-4 py-12 md:px-6">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           {/* Company Info */}
           <div className="space-y-4 lg:col-span-2">
             <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <img 
                   src="/images/rovic-logo.png" 
                   alt="Rovic Meat Products Logo" 
@@ -29,12 +29,26 @@ export default function ShopFooter() {
             </p>
             <div className="pt-2">
               <p className="text-xs text-gray-400 font-semibold mb-2">We Accept:</p>
-              <div className="flex items-center space-x-3">
-                <div className="bg-white rounded-lg px-3 py-1.5 flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="bg-white rounded-lg px-3 py-1.5 flex items-center space-x-2 shadow-sm">
                   <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">
                     G
                   </div>
                   <span className="text-sm font-semibold text-gray-800">GCash</span>
+                </div>
+
+                <div className="bg-white rounded-lg px-3 py-1.5 flex items-center space-x-2 shadow-sm">
+                  <div className="w-6 h-6 bg-emerald-500 rounded flex items-center justify-center text-white text-xs font-bold">
+                    M
+                  </div>
+                  <span className="text-sm font-semibold text-gray-800">Maya</span>
+                </div>
+
+                <div className="bg-white rounded-lg px-3 py-1.5 flex items-center space-x-2 shadow-sm">
+                  <div className="w-6 h-6 bg-gray-800 rounded flex items-center justify-center text-white text-[10px] font-bold">
+                    BT
+                  </div>
+                  <span className="text-sm font-semibold text-gray-800">Bank Transfer</span>
                 </div>
               </div>
             </div>
@@ -45,7 +59,7 @@ export default function ShopFooter() {
             <h3 className="text-lg font-bold text-white border-b border-orange-500 pb-2">Contact Us</h3>
             <div className="space-y-3 text-sm">
               <div className="flex items-start space-x-3">
-                <MapPin className="h-5 w-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                <MapPin className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-gray-300 leading-relaxed">
                     182 JP. Rizal St<br />
@@ -56,19 +70,19 @@ export default function ShopFooter() {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <Phone className="h-5 w-5 text-orange-400 flex-shrink-0" />
+                <Phone className="h-5 w-5 text-orange-400 shrink-0" />
                 <a href="tel:09365543854" className="text-gray-300 hover:text-orange-400 transition-colors">
                   0936 554 3854
                 </a>
               </div>
               <div className="flex items-center space-x-3">
-                <Mail className="h-5 w-5 text-orange-400 flex-shrink-0" />
+                <Mail className="h-5 w-5 text-orange-400 shrink-0" />
                 <a href="mailto:Kxrstynbasan2@gmail.com" className="text-gray-300 hover:text-orange-400 transition-colors break-all">
                   Kxrstynbasan2@gmail.com
                 </a>
               </div>
               <div className="flex items-center space-x-3">
-                <Clock className="h-5 w-5 text-orange-400 flex-shrink-0" />
+                <Clock className="h-5 w-5 text-orange-400 shrink-0" />
                 <p className="text-gray-300">
                   7:00 AM - 7:00 PM<br />
                   <span className="text-xs text-gray-400">Daily</span>

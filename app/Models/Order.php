@@ -14,6 +14,7 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'status',
+        'is_returned',
         'total_amount', // REVERT: Production database has 'total_amount'
         'pickup_or_delivery',
         'notes',
@@ -28,6 +29,7 @@ class Order extends Model
         'is_bulk_order',
         'payment_method',
         'payment_proof_path',
+        'payment_reference',
         'payment_status',
         'payment_rejection_reason',
         'payment_submitted_at',
@@ -51,6 +53,7 @@ class Order extends Model
         'is_senior_discount' => 'boolean',
         'discount_amount' => 'decimal:2',
         'senior_id_verified' => 'boolean',
+        'is_returned' => 'boolean',
     ];
 
     protected $appends = [
@@ -76,6 +79,12 @@ class Order extends Model
     const STATUS_READY_FOR_DELIVERY = 'ready_for_delivery';
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
+    const STATUS_RETURNED = 'returned';
+
+    // Simplified statuses for Phase 5 workflow (alias to existing payment_* values)
+    // Under the hood we store "payment_approved" / "payment_rejected" which are already allowed
+    const STATUS_APPROVED = 'payment_approved';
+    const STATUS_REJECTED = 'payment_rejected';
 
     // Payment methods
     const PAYMENT_QR = 'qr';
@@ -173,13 +182,14 @@ class Order extends Model
             self::STATUS_PENDING => 'Pending',
             self::STATUS_AWAITING_PAYMENT => 'Awaiting Payment',
             self::STATUS_PAYMENT_SUBMITTED => 'Payment Submitted',
-            self::STATUS_PAYMENT_APPROVED => 'Payment Approved',
-            self::STATUS_PAYMENT_REJECTED => 'Payment Rejected',
+            self::STATUS_PAYMENT_APPROVED, self::STATUS_APPROVED => 'Approved',
+            self::STATUS_PAYMENT_REJECTED, self::STATUS_REJECTED => 'Rejected',
             self::STATUS_CONFIRMED => 'Confirmed',
             self::STATUS_PREPARING => 'Preparing',
             self::STATUS_READY => 'Ready for ' . ucfirst($this->pickup_or_delivery),
             self::STATUS_COMPLETED => 'Completed',
-            self::STATUS_CANCELLED => 'Cancelled',
+            self::STATUS_CANCELLED => $this->is_returned ? 'Returned' : 'Cancelled',
+            self::STATUS_RETURNED => 'Returned',
             default => 'Unknown',
         };
     }
@@ -197,17 +207,44 @@ class Order extends Model
 
     /**
      * Get allowed next statuses based on current status
+     * Phase 5 simplified workflow with 8 statuses
      */
     public function getAllowedNextStatuses(): array
     {
         return match($this->status) {
+            // PENDING - can approve, reject, or cancel
             self::STATUS_PENDING => [
-                self::STATUS_CONFIRMED,
+                self::STATUS_APPROVED,
+                self::STATUS_REJECTED,
                 self::STATUS_CANCELLED,
             ],
+            // APPROVED - can start preparing or cancel
+            self::STATUS_APPROVED => [
+                self::STATUS_PREPARING,
+                self::STATUS_CANCELLED,
+            ],
+            // PREPARING - can mark as ready or cancel
+            self::STATUS_PREPARING => [
+                self::STATUS_READY,
+                self::STATUS_CANCELLED,
+            ],
+            // READY - can complete or cancel
+            self::STATUS_READY => [
+                self::STATUS_COMPLETED,
+                self::STATUS_CANCELLED,
+            ],
+            // COMPLETED - can process return (no more status changes after return)
+            self::STATUS_COMPLETED => [
+                self::STATUS_RETURNED,
+            ],
+            // RETURNED, CANCELLED, REJECTED - terminal states, no actions
+            self::STATUS_RETURNED, 
+            self::STATUS_CANCELLED, 
+            self::STATUS_REJECTED => [],
+            // Legacy statuses for backward compatibility
             self::STATUS_PAYMENT_SUBMITTED => [
-                self::STATUS_PAYMENT_APPROVED,
-                self::STATUS_PAYMENT_REJECTED,
+                self::STATUS_APPROVED,
+                self::STATUS_REJECTED,
                 self::STATUS_CANCELLED,
             ],
             self::STATUS_PAYMENT_APPROVED, self::STATUS_CONFIRMED => [
@@ -215,20 +252,12 @@ class Order extends Model
                 self::STATUS_CANCELLED,
             ],
             self::STATUS_PAYMENT_REJECTED => [
-                self::STATUS_PAYMENT_SUBMITTED,
-                self::STATUS_CANCELLED,
+                self::STATUS_REJECTED,
             ],
-            self::STATUS_PREPARING => [
-                // Show only the appropriate ready status based on delivery type
-                ...$this->getApplicableReadyStatuses(),
-                self::STATUS_READY, // Keep for backward compatibility
-                self::STATUS_CANCELLED,
-            ],
-            self::STATUS_READY, self::STATUS_READY_FOR_PICKUP, self::STATUS_READY_FOR_DELIVERY => [
+            self::STATUS_READY_FOR_PICKUP, self::STATUS_READY_FOR_DELIVERY => [
                 self::STATUS_COMPLETED,
                 self::STATUS_CANCELLED,
             ],
-            self::STATUS_COMPLETED, self::STATUS_CANCELLED => [],
             default => [],
         };
     }
@@ -238,17 +267,12 @@ class Order extends Model
      */
     public function canTransitionTo(string $newStatus): bool
     {
-        // Can't change completed or cancelled orders
-        if (in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED])) {
-            return false;
-        }
-
         $allowedStatuses = $this->getAllowedNextStatuses();
         return in_array($newStatus, $allowedStatuses);
     }
 
     /**
-     * Get human-readable status transition labels
+     * Get human-readable status transition labels (Phase 5 workflow)
      */
     public function getNextStatusOptions(): array
     {
@@ -257,13 +281,17 @@ class Order extends Model
 
         foreach ($allowedStatuses as $status) {
             $options[$status] = match($status) {
-                self::STATUS_CONFIRMED => 'Confirm Order',
-                self::STATUS_PREPARING => 'Start Preparing',
+                self::STATUS_APPROVED => 'Approve Payment',
+                self::STATUS_REJECTED => 'Reject Payment',
+                self::STATUS_PREPARING => 'Mark as Preparing',
                 self::STATUS_READY => 'Mark as Ready',
-                self::STATUS_READY_FOR_PICKUP => 'Ready for Pickup',
-                self::STATUS_READY_FOR_DELIVERY => 'Ready for Delivery',
                 self::STATUS_COMPLETED => 'Complete Order',
                 self::STATUS_CANCELLED => 'Cancel Order',
+                self::STATUS_RETURNED => 'Process Return',
+                // Legacy statuses
+                self::STATUS_CONFIRMED => 'Confirm Order',
+                self::STATUS_READY_FOR_PICKUP => 'Ready for Pickup',
+                self::STATUS_READY_FOR_DELIVERY => 'Ready for Delivery',
                 self::STATUS_PAYMENT_APPROVED => 'Approve Payment',
                 self::STATUS_PAYMENT_REJECTED => 'Reject Payment',
                 self::STATUS_PAYMENT_SUBMITTED => 'Resubmit Payment',
@@ -275,11 +303,16 @@ class Order extends Model
     }
 
     /**
-     * Check if order is in a final state
+     * Check if order is in a final state (Phase 5)
      */
     public function isFinalStatus(): bool
     {
-        return in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED]);
+        return in_array($this->status, [
+            self::STATUS_COMPLETED, 
+            self::STATUS_CANCELLED, 
+            self::STATUS_RETURNED, 
+            self::STATUS_REJECTED
+        ]);
     }
 
     /**
@@ -320,6 +353,22 @@ class Order extends Model
             return '₱' . number_format($this->discount_amount, 2);
         }
         return '₱0.00';
+    }
+
+    /**
+     * Computed invoice/order number.
+     * Format: RMP-10000, RMP-10001, ... where 10000 maps to id=1.
+     */
+    public function getOrderNumberAttribute(): ?string
+    {
+        if (!$this->id) {
+            return null;
+        }
+
+        $base = 10000; // First numeric invoice sequence
+        $numeric = $base + $this->id - 1;
+
+        return 'RMP-' . $numeric;
     }
 
     /**

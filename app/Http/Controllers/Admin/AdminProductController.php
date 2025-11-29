@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
@@ -13,11 +14,28 @@ use Cloudinary\Cloudinary as CloudinaryAPI;
 
 class AdminProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::with('category')
-            ->latest()
-            ->paginate(10);
+        $stockFilter = $request->input('stock_filter', 'all');
+
+        $query = Product::with('category')
+            ->latest();
+
+        if ($stockFilter === 'in_stock') {
+            // Products that are available (tracked stock with quantity > 0, or not tracking stock)
+            $query->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('track_stock', true)
+                       ->where('stock_quantity', '>', 0);
+                })
+                ->orWhere('track_stock', false);
+            });
+        } elseif ($stockFilter === 'low_stock') {
+            // Use the dedicated lowStock scope from the Product model
+            $query->lowStock();
+        }
+
+        $products = $query->paginate(10);
 
         $stats = [
             'total_products' => Product::count(),
@@ -29,6 +47,9 @@ class AdminProductController extends Controller
         return Inertia::render('Admin/Products/Index', [
             'products' => $products,
             'stats' => $stats,
+            'filters' => [
+                'stock_filter' => $stockFilter,
+            ],
         ]);
     }
 
@@ -181,6 +202,12 @@ class AdminProductController extends Controller
 
         $product = Product::create($validated);
 
+        ActivityLogger::log(
+            'product_created',
+            "Created product: {$product->name}",
+            $product
+        );
+
         return redirect()->route('admin.products.index')
             ->with('success', 'Product created successfully.');
     }
@@ -305,6 +332,12 @@ class AdminProductController extends Controller
 
         $product->update($validated);
 
+        ActivityLogger::log(
+            'product_updated',
+            "Updated product: {$product->name}",
+            $product
+        );
+
         return redirect()->route('admin.products.index')
             ->with('success', 'Product updated successfully.');
     }
@@ -312,6 +345,12 @@ class AdminProductController extends Controller
     public function destroy(Product $product)
     {
         $product->delete();
+
+        ActivityLogger::log(
+            'product_deleted',
+            "Deleted product: {$product->name}",
+            $product
+        );
 
         return redirect()->route('admin.products.index')
             ->with('success', 'Product deleted successfully.');
@@ -323,6 +362,12 @@ class AdminProductController extends Controller
             'is_best_selling' => !$product->is_best_selling
         ]);
 
+        ActivityLogger::log(
+            'product_toggle_best_selling',
+            ($product->is_best_selling ? 'Marked as best selling: ' : 'Removed best selling flag from: ') . $product->name,
+            $product
+        );
+
         return back()->with('success', 'Best selling status updated.');
     }
 
@@ -331,6 +376,12 @@ class AdminProductController extends Controller
         $product->update([
             'is_active' => !$product->is_active
         ]);
+
+        ActivityLogger::log(
+            'product_toggle_active',
+            ($product->is_active ? 'Activated product: ' : 'Deactivated product: ') . $product->name,
+            $product
+        );
 
         return back()->with('success', 'Product status updated.');
     }
@@ -362,7 +413,6 @@ class AdminProductController extends Controller
 
         $product->update(['stock_quantity' => $newQuantity]);
 
-        // Log the stock adjustment (you can implement a stock_adjustments table later)
         \Log::info('Stock adjustment', [
             'product_id' => $product->id,
             'product_name' => $product->name,
@@ -373,6 +423,12 @@ class AdminProductController extends Controller
             'reason' => $validated['reason'],
             'admin_id' => auth()->id(),
         ]);
+
+        ActivityLogger::log(
+            'product_stock_adjusted',
+            "Adjusted stock for {$product->name} from {$oldQuantity} to {$newQuantity}" . ($validated['reason'] ? " (Reason: {$validated['reason']})" : ''),
+            $product
+        );
 
         return back()->with('success', "Stock updated from {$oldQuantity} to {$newQuantity}.");
     }
@@ -410,7 +466,7 @@ class AdminProductController extends Controller
             if ($product) {
                 $oldQuantity = $product->stock_quantity;
                 $product->update(['stock_quantity' => $update['stock_quantity']]);
-                
+
                 \Log::info('Bulk stock update', [
                     'product_id' => $product->id,
                     'product_name' => $product->name,
@@ -418,7 +474,13 @@ class AdminProductController extends Controller
                     'new_quantity' => $update['stock_quantity'],
                     'admin_id' => auth()->id(),
                 ]);
-                
+
+                ActivityLogger::log(
+                    'product_bulk_stock_updated',
+                    "Bulk stock update for {$product->name}: {$oldQuantity} → {$update['stock_quantity']}",
+                    $product
+                );
+
                 $updatedCount++;
             }
         }

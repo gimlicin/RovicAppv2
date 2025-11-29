@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ShoppingCart, Eye, CheckCircle, XCircle, Clock, Package, User, Calendar, DollarSign, Filter, X, Download, Truck, ChefHat, Maximize2, FileSpreadsheet, FileText } from 'lucide-react';
+import { ShoppingCart, Eye, CheckCircle, XCircle, Clock, Package, User, Calendar, DollarSign, Download, Truck, ChefHat, Maximize2, FileSpreadsheet, RotateCcw, Ban, ThumbsDown, ThumbsUp, Box, FileText } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface OrderItem {
   id: number;
@@ -23,6 +24,7 @@ interface OrderItem {
 interface Order {
   id: number;
   status: string;
+  is_returned?: boolean;
   payment_status: string;
   total_amount: number;
   pickup_or_delivery: string;
@@ -35,6 +37,8 @@ interface Order {
   customer_name: string;
   customer_email: string | null;
   customer_phone: string;
+  payment_reference?: string | null;
+  payment_method?: string | null;
   order_items?: OrderItem[];
   payment_proof?: string;
   next_status_options?: Record<string, string>;
@@ -57,8 +61,21 @@ interface PaginationData {
   links?: PaginationLink[];
 }
 
+interface StatusCounts {
+  all: number;
+  pending: number;
+  approved: number;
+  preparing: number;
+  ready: number;
+  completed: number;
+  returned: number;
+  cancelled: number;
+  rejected: number;
+}
+
 interface Props {
   orders: PaginationData;
+  statusCounts: StatusCounts;
   filters: {
     status?: string;
     delivery_type?: string;
@@ -66,9 +83,25 @@ interface Props {
   };
 }
 
-function OrdersIndex({ orders, filters }: Props) {
+function OrdersIndex({ orders, statusCounts, filters }: Props) {
   const { props } = usePage<any>();
   const csrfToken = props.csrf_token;
+
+  const issueReceipt = (orderId: number) => {
+    // Open printable invoice view in a new tab; it will auto-trigger browser print
+    window.open(`/admin/orders/${orderId}/invoice/print`, '_blank');
+  };
+
+  // Map backend status filter to tab value (for initial render)
+  const statusFilter = filters.status || 'all';
+  const initialTab =
+    statusFilter === 'payment_approved'
+      ? 'approved'
+      : statusFilter === 'payment_rejected'
+        ? 'rejected'
+        : statusFilter;
+
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -76,6 +109,9 @@ function OrdersIndex({ orders, filters }: Props) {
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string; orderId: number } | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [rejectOrderId, setRejectOrderId] = useState<number | null>(null);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -94,30 +130,47 @@ function OrdersIndex({ orders, filters }: Props) {
     });
   };
 
+  const getLogicalStatus = (order: Order): string => {
+    if (order.status === 'cancelled' && order.is_returned) {
+      return 'returned';
+    }
+    // Map underlying payment_* DB values to simplified logical stages
+    if (order.status === 'payment_approved') {
+      return 'approved';
+    }
+    if (order.status === 'payment_rejected') {
+      return 'rejected';
+    }
+    return order.status;
+  };
+
   const getStatusBadge = (status: string, pickupOrDelivery?: string) => {
     const statusConfig = {
-      pending: { variant: 'secondary' as const, label: 'Pending', icon: Clock, color: 'bg-gray-500' },
+      pending: { variant: 'secondary' as const, label: 'Pending', icon: Clock, color: 'bg-yellow-500' },
+      approved: { variant: 'default' as const, label: 'Approved', icon: ThumbsUp, color: 'bg-blue-600' },
+      rejected: { variant: 'destructive' as const, label: 'Rejected', icon: ThumbsDown, color: 'bg-red-600' },
       payment_submitted: { variant: 'outline' as const, label: 'Payment Submitted', icon: Clock, color: 'bg-blue-500' },
       payment_approved: { variant: 'default' as const, label: 'Payment Approved', icon: CheckCircle, color: 'bg-green-500' },
       confirmed: { variant: 'default' as const, label: 'Confirmed', icon: CheckCircle, color: 'bg-green-500' },
-      preparing: { variant: 'default' as const, label: 'Preparing', icon: ChefHat, color: 'bg-orange-500' },
+      preparing: { variant: 'default' as const, label: 'Preparing', icon: ChefHat, color: 'bg-purple-600' },
       ready: { 
         variant: 'default' as const, 
-        label: pickupOrDelivery === 'delivery' ? 'Ready for Delivery' : 'Ready for Pickup',
-        icon: pickupOrDelivery === 'delivery' ? Truck : Package,
-        color: pickupOrDelivery === 'delivery' ? 'bg-indigo-500' : 'bg-purple-500'
+        label: 'Ready',
+        icon: Package,
+        color: 'bg-teal-600'
       },
-      ready_for_pickup: { variant: 'default' as const, label: 'Ready for Pickup', icon: Package, color: 'bg-purple-500' },
-      ready_for_delivery: { variant: 'default' as const, label: 'Ready for Delivery', icon: Truck, color: 'bg-indigo-500' },
+      ready_for_pickup: { variant: 'default' as const, label: 'Ready for Pickup', icon: Package, color: 'bg-teal-500' },
+      ready_for_delivery: { variant: 'default' as const, label: 'Ready for Delivery', icon: Truck, color: 'bg-teal-500' },
       completed: { variant: 'default' as const, label: 'Completed', icon: CheckCircle, color: 'bg-green-600' },
-      cancelled: { variant: 'destructive' as const, label: 'Cancelled', icon: XCircle, color: 'bg-red-500' },
+      returned: { variant: 'default' as const, label: 'Returned', icon: RotateCcw, color: 'bg-orange-500' },
+      cancelled: { variant: 'default' as const, label: 'Cancelled', icon: Ban, color: 'bg-gray-500' },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
+      <Badge variant={config.variant} className={`flex items-center gap-1 ${config.color} text-white`}>
         <Icon className="h-3 w-3" />
         {config.label}
       </Badge>
@@ -171,26 +224,62 @@ function OrdersIndex({ orders, filters }: Props) {
   };
 
   const rejectPayment = (orderId: number) => {
-    const rejectionReason = prompt('Please provide a reason for rejecting this payment:');
-    if (rejectionReason && rejectionReason.trim()) {
-      router.patch(`/admin/orders/${orderId}/reject-payment`, {
-        rejection_reason: rejectionReason.trim(),
-        _token: csrfToken
-      }, {
-        preserveScroll: true,
-        onSuccess: () => {
-          console.log('Payment rejected successfully');
-        },
-        onError: (errors) => {
-          console.error('Error rejecting payment:', errors);
-        }
-      });
+    setRejectOrderId(orderId);
+    setRejectReason('');
+    setIsRejectDialogOpen(true);
+  };
+
+  const submitRejectPayment = () => {
+    if (!rejectOrderId || !rejectReason.trim()) {
+      return;
     }
+
+    router.patch(`/admin/orders/${rejectOrderId}/reject-payment`, {
+      rejection_reason: rejectReason.trim(),
+      _token: csrfToken
+    }, {
+      preserveScroll: true,
+      onSuccess: () => {
+        console.log('Payment rejected successfully');
+        setIsRejectDialogOpen(false);
+        setRejectReason('');
+        setRejectOrderId(null);
+      },
+      onError: (errors) => {
+        console.error('Error rejecting payment:', errors);
+      }
+    });
+  };
+
+  const handleNextActionChange = (order: Order, action: string) => {
+    if (!action) return;
+
+    if (action === 'issue_receipt') {
+      issueReceipt(order.id);
+      return;
+    }
+
+    updateOrderStatus(order.id, action);
   };
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...filters, [key]: value === 'all' ? '' : value };
     router.get('/admin/orders', newFilters, { preserveState: true });
+  };
+
+  // Map tab value to actual DB status string
+  const mapTabToStatus = (value: string): string => {
+    if (value === 'approved') return 'payment_approved';
+    if (value === 'rejected') return 'payment_rejected';
+    if (value === 'all') return '';
+    return value;
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const status = mapTabToStatus(value);
+    const newFilters = { ...filters, status };
+    router.get('/admin/orders', newFilters, { preserveState: true, preserveScroll: true });
   };
 
   const viewOrderDetails = (order: Order) => {
@@ -212,15 +301,16 @@ function OrdersIndex({ orders, filters }: Props) {
   const getOrderTimeline = (order: Order) => {
     const allSteps = [
       { status: 'pending', label: 'Order Placed', icon: ShoppingCart },
-      { status: 'confirmed', label: 'Confirmed', icon: CheckCircle },
+      { status: 'payment_approved', label: 'Approved', icon: ThumbsUp },
       { status: 'preparing', label: 'Preparing', icon: ChefHat },
       { status: 'ready', label: 'Ready', icon: Package },
       { status: 'completed', label: 'Completed', icon: Truck },
     ];
 
     // Determine which step is current
-    const statusOrder = ['pending', 'payment_submitted', 'payment_approved', 'confirmed', 'preparing', 'ready', 'completed'];
-    const currentIndex = statusOrder.indexOf(order.status);
+    const statusOrder = ['pending', 'payment_submitted', 'payment_approved', 'preparing', 'ready', 'completed', 'returned'];
+    const logicalStatus = getLogicalStatus(order);
+    const currentIndex = statusOrder.indexOf(logicalStatus);
 
     return (
       <div className="relative">
@@ -229,7 +319,7 @@ function OrdersIndex({ orders, filters }: Props) {
           {allSteps.map((step, index) => {
             const stepIndex = statusOrder.indexOf(step.status);
             const isCompleted = currentIndex >= stepIndex;
-            const isCurrent = order.status === step.status;
+            const isCurrent = logicalStatus === step.status;
             const Icon = step.icon;
 
             return (
@@ -254,13 +344,24 @@ function OrdersIndex({ orders, filters }: Props) {
           })}
           
           {/* Show cancelled status if applicable */}
-          {order.status === 'cancelled' && (
+          {logicalStatus === 'cancelled' && (
             <div className="relative flex items-start gap-4">
               <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 bg-red-500 border-red-500">
                 <XCircle className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 pt-2">
                 <p className="font-medium text-red-600">Order Cancelled</p>
+              </div>
+            </div>
+          )}
+
+          {logicalStatus === 'returned' && (
+            <div className="relative flex items-start gap-4">
+              <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 bg-orange-500 border-orange-500">
+                <RotateCcw className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1 pt-2">
+                <p className="font-medium text-orange-600">Order Returned</p>
               </div>
             </div>
           )}
@@ -280,93 +381,58 @@ function OrdersIndex({ orders, filters }: Props) {
             <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
             <p className="text-muted-foreground">Manage customer orders and payments</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                const params = new URLSearchParams();
-                if (filters.status && filters.status !== 'all') params.append('status', filters.status);
-                if (filters.delivery_type && filters.delivery_type !== 'all') params.append('delivery_type', filters.delivery_type);
-                if (filters.bulk_orders) params.append('bulk_orders', '1');
-                if (startDate) params.append('start_date', startDate);
-                if (endDate) params.append('end_date', endDate);
-                window.location.href = `/admin/orders/export?${params.toString()}`;
-              }}
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Export to Excel
-            </Button>
-          </div>
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 flex-wrap">
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium">Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                />
-              </div>
-              
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium">End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                />
-              </div>
-              
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value)}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="payment_submitted">Payment Submitted</SelectItem>
-                    <SelectItem value="payment_approved">Payment Approved</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="preparing">Preparing</SelectItem>
-                    <SelectItem value="ready">Ready</SelectItem>
-                    <SelectItem value="ready_for_pickup">Ready for Pickup</SelectItem>
-                    <SelectItem value="ready_for_delivery">Ready for Delivery</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium">Delivery Type</label>
-                <Select value={filters.delivery_type || 'all'} onValueChange={(value) => handleFilterChange('delivery_type', value)}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="pickup">Store Pickup</SelectItem>
-                    <SelectItem value="delivery">Home Delivery</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Status Tabs - Phase 5 */}
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto p-1 gap-1">
+            <TabsTrigger value="all" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              All
+              <Badge variant="secondary" className="ml-1">{statusCounts.all}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Pending
+              <Badge variant="secondary" className="ml-1">{statusCounts.pending}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="flex items-center gap-2">
+              <ThumbsUp className="h-4 w-4" />
+              Approved
+              <Badge variant="secondary" className="ml-1">{statusCounts.approved}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="preparing" className="flex items-center gap-2">
+              <ChefHat className="h-4 w-4" />
+              Preparing
+              <Badge variant="secondary" className="ml-1">{statusCounts.preparing}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="ready" className="flex items-center gap-2">
+              <Box className="h-4 w-4" />
+              Ready
+              <Badge variant="secondary" className="ml-1">{statusCounts.ready}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Completed
+              <Badge variant="secondary" className="ml-1">{statusCounts.completed}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="returned" className="flex items-center gap-2">
+              <RotateCcw className="h-4 w-4" />
+              Returned
+              <Badge variant="secondary" className="ml-1">{statusCounts.returned}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="cancelled" className="flex items-center gap-2">
+              <Ban className="h-4 w-4" />
+              Cancelled
+              <Badge variant="secondary" className="ml-1">{statusCounts.cancelled}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="flex items-center gap-2">
+              <ThumbsDown className="h-4 w-4" />
+              Rejected
+              <Badge variant="secondary" className="ml-1">{statusCounts.rejected}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Orders Table */}
         <Card>
@@ -429,21 +495,10 @@ function OrdersIndex({ orders, filters }: Props) {
                       <TableCell>
                         <span className="font-medium">{formatCurrency(order.total_amount)}</span>
                       </TableCell>
-                      <TableCell>{getStatusBadge(order.status, order.pickup_or_delivery)}</TableCell>
+                      <TableCell>{getStatusBadge(getLogicalStatus(order), order.pickup_or_delivery)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getPaymentStatusBadge(order.payment_status)}
-                          {order.payment_proof && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => openPaymentProofLightbox(order)}
-                              title="View Payment Proof"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -461,15 +516,6 @@ function OrdersIndex({ orders, filters }: Props) {
                             title="View Details"
                           >
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(`/admin/orders/${order.id}/invoice`, '_blank')}
-                            title="Download Invoice (PDF)"
-                          >
-                            <FileText className="h-4 w-4" />
                           </Button>
                           
                           {/* Payment approval/rejection actions */}
@@ -496,24 +542,50 @@ function OrdersIndex({ orders, filters }: Props) {
                             </>
                           )}
                           
-                          {/* Status transition dropdown - show only if payment is approved and order has next status options */}
-                          {order.payment_status === 'approved' && order.next_status_options && Object.keys(order.next_status_options).length > 0 && !order.is_final_status && (
-                            <Select onValueChange={(value) => updateOrderStatus(order.id, value)}>
-                              <SelectTrigger className="w-40">
-                                <SelectValue placeholder="Next Action" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(order.next_status_options).map(([status, label]) => (
-                                  <SelectItem key={status} value={status}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          {/* Next Action dropdown */}
+                          {order.payment_status === 'approved' && (
+                            <>
+                              {order.status === 'completed' ? (
+                                // Completed & paid: allow processing return + issuing receipt
+                                <Select onValueChange={(value) => handleNextActionChange(order, value)}>
+                                  <SelectTrigger className="w-40">
+                                    <span className="truncate text-sm text-muted-foreground">Next Action</span>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {order.next_status_options &&
+                                      Object.entries(order.next_status_options).map(([status, label]) => (
+                                        <SelectItem key={status} value={status}>
+                                          {label}
+                                        </SelectItem>
+                                      ))}
+                                    <SelectItem value="issue_receipt">
+                                      Issue Receipt (Print)
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                order.next_status_options &&
+                                Object.keys(order.next_status_options).length > 0 &&
+                                !order.is_final_status && (
+                                  <Select onValueChange={(value) => handleNextActionChange(order, value)}>
+                                    <SelectTrigger className="w-40">
+                                      <span className="truncate text-sm text-muted-foreground">Next Action</span>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Object.entries(order.next_status_options).map(([status, label]) => (
+                                        <SelectItem key={status} value={status}>
+                                          {label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )
+                              )}
+                            </>
                           )}
                           
                           {/* Show helpful messages for orders that can't proceed */}
-                          {order.is_final_status && (
+                          {order.is_final_status && !(order.status === 'completed' && order.payment_status === 'approved') && (
                             <span className="text-xs text-muted-foreground italic">No actions</span>
                           )}
                           
@@ -592,7 +664,7 @@ function OrdersIndex({ orders, filters }: Props) {
 
         {/* Order Details Modal */}
         <Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
-          <DialogContent className="!w-[95vw] h-[90vh] !max-w-none max-h-none overflow-y-auto">
+          <DialogContent className="w-[95vw]! h-[90vh] max-w-none! max-h-none overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
@@ -648,8 +720,18 @@ function OrdersIndex({ orders, filters }: Props) {
                       </div>
                       <p className="text-2xl font-bold">{formatCurrency(selectedOrder.total_amount)}</p>
                       <div className="mt-2 space-y-1">
-                        <div>{getStatusBadge(selectedOrder.status, selectedOrder.pickup_or_delivery)}</div>
+                        <div>{getStatusBadge(getLogicalStatus(selectedOrder), selectedOrder.pickup_or_delivery)}</div>
                         <div>{getPaymentStatusBadge(selectedOrder.payment_status)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-medium">Payment Method:</span>{' '}
+                          {selectedOrder.payment_method === 'qr' ? 'QR Code' : 'Cash'}
+                        </div>
+                        {selectedOrder.payment_reference && (
+                          <div className="text-xs text-muted-foreground break-all">
+                            <span className="font-medium">Reference:</span>{' '}
+                            {selectedOrder.payment_reference}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -835,8 +917,8 @@ function OrdersIndex({ orders, filters }: Props) {
                 ? () => {
                     router.patch(`/admin/orders/${lightboxImage.orderId}/approve-payment`, {}, {
                       onSuccess: () => {
-                        setOrderDetailOpen(false);
-                        window.location.reload(); // Quick refresh for demo
+                        setIsOrderModalOpen(false);
+                        setIsLightboxOpen(false);
                       }
                     });
                   }
@@ -845,21 +927,64 @@ function OrdersIndex({ orders, filters }: Props) {
             onReject={
               selectedOrder?.payment_status === 'submitted'
                 ? () => {
-                    const reason = prompt('Rejection reason:') || 'Payment verification failed';
-                    router.patch(`/admin/orders/${lightboxImage.orderId}/reject-payment`, 
-                      { rejection_reason: reason }, 
-                      {
-                        onSuccess: () => {
-                          setOrderDetailOpen(false);
-                          window.location.reload(); // Quick refresh for demo
-                        }
-                      }
-                    );
+                    if (lightboxImage) {
+                      setIsOrderModalOpen(false);
+                      setIsLightboxOpen(false);
+                      rejectPayment(lightboxImage.orderId);
+                    }
                   }
                 : undefined
             }
           />
         )}
+
+        <Dialog
+          open={isRejectDialogOpen}
+          onOpenChange={(open) => {
+            setIsRejectDialogOpen(open);
+            if (!open) {
+              setRejectReason('');
+              setRejectOrderId(null);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Payment</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Please provide a clear reason for rejecting this payment proof. The customer will see this message.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full p-3 border rounded-md text-sm"
+                rows={4}
+                placeholder="e.g. Screenshot is unclear or does not match the order total."
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsRejectDialogOpen(false);
+                    setRejectReason('');
+                    setRejectOrderId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={submitRejectPayment}
+                  disabled={!rejectReason.trim() || !rejectOrderId}
+                >
+                  Reject Payment
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );

@@ -162,26 +162,25 @@
                     <p><span class="label">Phone:</span> {{ $order->customer_phone }}</p>
                 @endif
                 @if($order->pickup_or_delivery === 'delivery')
+                    @php
+                        $addressParts = array_filter([
+                            $order->delivery_address,
+                            $order->delivery_barangay,
+                            $order->delivery_city,
+                        ]);
+                    @endphp
                     <p><span class="label">Delivery Address:</span><br>
-                    {{ $order->delivery_address }}, {{ $order->delivery_barangay }}, {{ $order->delivery_city }}</p>
+                    {{ implode(', ', $addressParts) }}</p>
                 @endif
             </div>
             <div class="right" style="text-align: right;">
                 <h3>Invoice Details:</h3>
                 <p><span class="label">Invoice #:</span> {{ $order->order_number }}</p>
                 <p><span class="label">Date:</span> {{ $order->created_at->format('F d, Y') }}</p>
-                <p><span class="label">Status:</span> 
-                    @if($order->status === 'completed')
-                        <span class="badge badge-success">{{ ucfirst($order->status) }}</span>
-                    @elseif($order->status === 'pending')
-                        <span class="badge badge-warning">{{ ucfirst($order->status) }}</span>
-                    @elseif($order->status === 'cancelled')
-                        <span class="badge badge-danger">{{ ucfirst($order->status) }}</span>
-                    @else
-                        <span class="badge badge-info">{{ ucfirst($order->status) }}</span>
-                    @endif
-                </p>
                 <p><span class="label">Payment:</span> {{ ucfirst($order->payment_method) }}</p>
+                @if($order->payment_reference)
+                    <p><span class="label">Reference:</span> {{ $order->payment_reference }}</p>
+                @endif
                 <p><span class="label">Delivery:</span> {{ ucfirst($order->pickup_or_delivery) }}</p>
                 @if($order->is_bulk_order)
                     <p><span class="badge badge-info">Bulk Order</span></p>
@@ -227,23 +226,18 @@
             <table>
                 <tr>
                     <td><strong>Subtotal:</strong></td>
-                    <td class="text-right">₱{{ number_format($order->total_amount, 2) }}</td>
+                    <td class="text-right">₱{{ number_format($order->subtotal ?? $order->total_amount, 2) }}</td>
                 </tr>
-                @if($order->is_senior_discount)
+                @if($order->discount_amount > 0)
                 <tr>
-                    <td><strong>Senior/PWD Discount (20%):</strong></td>
-                    <td class="text-right">-₱{{ number_format($order->total_amount * 0.20, 2) }}</td>
+                    <td><strong>Senior/PWD Discount:</strong></td>
+                    <td class="text-right">-₱{{ number_format($order->discount_amount, 2) }}</td>
                 </tr>
-                <tr class="grand-total">
-                    <td><strong>Total Amount:</strong></td>
-                    <td class="text-right"><strong>₱{{ number_format($order->total_amount * 0.80, 2) }}</strong></td>
-                </tr>
-                @else
+                @endif
                 <tr class="grand-total">
                     <td><strong>Total Amount:</strong></td>
                     <td class="text-right"><strong>₱{{ number_format($order->total_amount, 2) }}</strong></td>
                 </tr>
-                @endif
             </table>
         </div>
 
@@ -254,5 +248,11 @@
             <p style="margin-top: 10px;">This is a computer-generated invoice and does not require a signature.</p>
         </div>
     </div>
+
+    <script>
+        window.onload = function () {
+            window.print();
+        };
+    </script>
 </body>
 </html>

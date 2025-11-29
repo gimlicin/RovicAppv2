@@ -55,6 +55,8 @@ export default function ProductFilters({
   const [showPrice, setShowPrice] = useState(true);
   const [showStock, setShowStock] = useState(true);
 
+  const sanitizeNumericInput = (value: string) => value.replace(/[^0-9]/g, '');
+
   // Apply filters
   const applyFilters = () => {
     const params = new URLSearchParams();
@@ -69,12 +71,15 @@ export default function ProductFilters({
       params.set('category_id', selectedCategories[0]);
     }
 
-    // Price range
-    if (minPrice) {
-      params.set('min_price', minPrice);
+    // Price range (sanitize before sending)
+    const numericMin = sanitizeNumericInput(minPrice);
+    const numericMax = sanitizeNumericInput(maxPrice);
+
+    if (numericMin) {
+      params.set('min_price', numericMin);
     }
-    if (maxPrice) {
-      params.set('max_price', maxPrice);
+    if (numericMax) {
+      params.set('max_price', numericMax);
     }
 
     // Stock filter
@@ -232,23 +237,21 @@ export default function ProductFilters({
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder={`Min (₱${priceRange.min})`}
                 value={minPrice}
                 onChange={(e) => setMinPrice(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                min={priceRange.min}
-                max={priceRange.max}
               />
               <span className="text-gray-400">-</span>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder={`Max (₱${priceRange.max})`}
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                min={priceRange.min}
-                max={priceRange.max}
               />
             </div>
             <p className="text-xs text-gray-500">
@@ -302,7 +305,7 @@ export default function ProductFilters({
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block w-64 flex-shrink-0">
+      <div className="hidden lg:block w-64 shrink-0">
         <div className="sticky top-24 bg-white dark:bg-gray-900 rounded-lg border p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-bold text-lg flex items-center gap-2">

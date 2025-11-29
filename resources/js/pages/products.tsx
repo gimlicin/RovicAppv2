@@ -193,7 +193,7 @@ function ProductsPageInner({ products, categories = [], filters = {}, priceRange
           </span>
         )}
       </div>
-      <div className="flex flex-col p-4 flex-grow">
+      <div className="flex flex-col p-4 grow">
         <div className="mb-1.5 flex justify-between">
           <div>
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -251,16 +251,26 @@ function ProductsPageInner({ products, categories = [], filters = {}, priceRange
   return (
     <ShopFrontLayout>
       <Head title={filters?.search ? `Search: ${filters.search}` : 'All Products - Rovic Meat Products'} />
-      
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        
-        <main className="container mx-auto px-4 py-8">
+
+      <div className="relative min-h-screen overflow-hidden bg-black">
+        {/* Blurred background image with subtle red/yellow vignette (same as landing) */}
+        <div className="pointer-events-none absolute inset-0">
+          <img
+            src="/images/landing-bg.jpg"
+            alt="Fresh quality meat products"
+            className="w-full h-full object-cover blur-sm scale-105"
+          />
+          <div className="absolute inset-0 bg-linear-to-b from-black/70 via-black/80 to-black" />
+          <div className="absolute inset-0 bg-linear-to-tr from-red-900/40 via-transparent to-yellow-600/25 mix-blend-overlay" />
+        </div>
+
+        <main className="relative z-10 container mx-auto px-4 py-8">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h1 className="text-3xl font-bold text-white mb-2">
               {filters?.search ? `Search Results for "${filters.search}"` : 'All Products'}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-100">
               {filters?.search
                 ? `Found ${products?.meta?.total || 0} products`
                 : 'Browse our complete selection of premium meat products'}
@@ -280,21 +290,21 @@ function ProductsPageInner({ products, categories = [], filters = {}, priceRange
             <div className="flex-1">
               {/* View Controls */}
               <div className="flex items-center justify-between mb-6">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-sm text-gray-100">
                   {products?.data && products.data.length > 0 ? (
                     <>
                       Showing{' '}
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                      <span className="font-medium text-white">
                         {products.meta?.from || 1} - {products.meta?.to || products.data.length}
                       </span>{' '}
                       of{' '}
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                      <span className="font-medium text-white">
                         {products.meta?.total || products.data.length}
                       </span>{' '}
                       products
                     </>
                   ) : (
-                    <span>No products found</span>
+                    <span className="text-gray-100">No products found</span>
                   )}
                 </div>
 

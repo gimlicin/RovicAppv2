@@ -48,6 +48,7 @@ class PaymentSetting extends Model
     public function getPaymentMethodNameAttribute(): string
     {
         return match ($this->payment_method) {
+            'cash' => 'Cash (On Delivery / Pickup)',
             'gcash' => 'GCash',
             'maya' => 'Maya (PayMaya)',
             'bank_transfer' => 'Bank Transfer',

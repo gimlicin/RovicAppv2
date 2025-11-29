@@ -370,7 +370,7 @@ const ListProductCard: React.FC<{
       </div>
 
       {/* Product details */}
-      <div className="flex flex-col p-4 flex-grow">
+      <div className="flex flex-col p-4 grow">
         <div className="mb-1.5 flex justify-between">
           <div>
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -521,8 +521,6 @@ const ProductListing = ({
         return a.price - b.price;
       case "price-high":
         return b.price - a.price;
-      case "rating":
-        return 0; // No rating field in our API yet
       case "newest":
         return a.is_best_seller ? -1 : b.is_best_seller ? 1 : 0;
       default: // 'featured'
@@ -548,7 +546,7 @@ const ProductListing = ({
       {/* Header - only show on home page */}
       {!initialProducts.length && (
         <div className="mb-8">
-          <div className="relative bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-8 overflow-hidden">
+          <div className="relative bg-linear-to-r from-gray-900 to-gray-800 rounded-2xl p-8 overflow-hidden">
             <div className="absolute top-0 right-0 w-1/2 h-full opacity-10">
               <svg
                 viewBox="0 0 100 100"
@@ -620,7 +618,6 @@ const ProductListing = ({
               <option value="featured">Featured</option>
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
-              <option value="rating">Top Rated</option>
               <option value="newest">Newest</option>
             </select>
             <ChevronDown
@@ -629,17 +626,17 @@ const ProductListing = ({
             />
           </div>
 
-          {/* Filter button */}
-          <button className="flex items-center gap-2 py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200">
+          {/* Filter button (hidden for future use) */}
+          <button className="hidden">
             <Sliders size={16} />
             <span>Filters</span>
           </button>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-white">
             Showing{" "}
-            <span className="font-medium text-gray-700">
+            <span className="font-medium text-white">
               {sortedProducts.length}
             </span>{" "}
             products

@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -58,6 +58,7 @@ class User extends Authenticatable
     const ROLE_CUSTOMER = 'customer';
     const ROLE_WHOLESALER = 'wholesaler';
     const ROLE_ADMIN = 'admin';
+    const ROLE_SUPER_ADMIN = 'super_admin';
 
     // Relationship with Orders
     public function orders()
@@ -81,6 +82,17 @@ class User extends Authenticatable
         return $this->role === self::ROLE_ADMIN;
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    // Check if user has admin privileges (admin or super_admin)
+    public function hasAdminAccess(): bool
+    {
+        return $this->isAdmin() || $this->isSuperAdmin();
+    }
+
     // Scopes for filtering
     public function scopeCustomers($query)
     {
@@ -95,5 +107,10 @@ class User extends Authenticatable
     public function scopeAdmins($query)
     {
         return $query->where('role', self::ROLE_ADMIN);
+    }
+
+    public function scopeSuperAdmins($query)
+    {
+        return $query->where('role', self::ROLE_SUPER_ADMIN);
     }
 }

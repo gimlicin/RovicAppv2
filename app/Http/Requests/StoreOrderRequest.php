@@ -23,7 +23,7 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             'customer_name' => 'required|string|max:255',
-            'customer_phone' => 'required|string|max:20|regex:/^[\+]?[0-9\s\-\(\)]+$/',
+            'customer_phone' => ['required', 'digits:11'],
             'customer_email' => 'nullable|email|max:255',
             'pickup_or_delivery' => 'required|in:pickup,delivery',
             'delivery_address' => 'required_if:pickup_or_delivery,delivery|nullable|string|max:500',
@@ -68,7 +68,7 @@ class StoreOrderRequest extends FormRequest
         return [
             'customer_name.required' => 'Customer name is required.',
             'customer_phone.required' => 'Phone number is required.',
-            'customer_phone.regex' => 'Please enter a valid phone number.',
+            'customer_phone.digits' => 'Phone number must be exactly 11 digits.',
             'pickup_or_delivery.required' => 'Please select pickup or delivery.',
             'pickup_or_delivery.in' => 'Please select either pickup or delivery.',
             'delivery_address.required_if' => 'Delivery address is required for delivery orders.',

@@ -16,6 +16,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Models\PaymentSetting;
 use App\Models\CartItem;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -29,14 +30,36 @@ use Cloudinary\Cloudinary as CloudinaryAPI;
 class OrderController extends Controller
 {
     /**
-     * Display a listing of orders (Admin view)
+     * Display a listing of orders (Admin view) - Phase 5 with tabs
      */
     public function index(Request $request)
     {
         $query = Order::with(['user', 'orderItems.product'])
             ->orderBy('created_at', 'desc');
-        if ($request->has('status') && $request->status) {
-            $query->byStatus($request->status);
+        
+        // Filter by status tab (Phase 5)
+        if ($request->has('status') && $request->status && $request->status !== 'all') {
+            $status = $request->status;
+
+            if ($status === Order::STATUS_RETURNED) {
+                $query->where(function ($q) {
+                    $q->where('status', Order::STATUS_RETURNED)
+                      ->orWhere(function ($q2) {
+                          $q2->where('status', Order::STATUS_CANCELLED)
+                              ->where('is_returned', true);
+                      });
+                });
+            } elseif ($status === Order::STATUS_CANCELLED) {
+                $query->where('status', Order::STATUS_CANCELLED)
+                      ->where(function ($q) {
+                          $q->whereNull('is_returned')
+                            ->orWhere('is_returned', false);
+                      });
+            } else {
+                // Tabs send the underlying DB status string (e.g. payment_approved).
+                // Use the status column consistently for filtering.
+                $query->byStatus($status);
+            }
         }
 
         // Filter by delivery type
@@ -63,6 +86,31 @@ class OrderController extends Controller
             return $order;
         });
 
+        // Get tab counts for Phase 5 workflow
+        $statusCounts = [
+            'all' => Order::count(),
+            'pending' => Order::where('status', Order::STATUS_PENDING)->count(),
+            // Approved tab represents orders in the "Payment Approved" stage
+            'approved' => Order::where('status', Order::STATUS_APPROVED)->count(),
+            'preparing' => Order::where('status', Order::STATUS_PREPARING)->count(),
+            'ready' => Order::where('status', Order::STATUS_READY)->count(),
+            'completed' => Order::where('status', Order::STATUS_COMPLETED)->count(),
+            'returned' => Order::where(function ($query) {
+                $query->where('status', Order::STATUS_RETURNED)
+                      ->orWhere(function ($q) {
+                          $q->where('status', Order::STATUS_CANCELLED)
+                            ->where('is_returned', true);
+                      });
+            })->count(),
+            'cancelled' => Order::where('status', Order::STATUS_CANCELLED)
+                ->where(function ($query) {
+                    $query->whereNull('is_returned')
+                          ->orWhere('is_returned', false);
+                })
+                ->count(),
+            'rejected' => Order::where('status', Order::STATUS_REJECTED)->count(),
+        ];
+
         return Inertia::render('Admin/Orders/Index', [
             'orders' => [
                 'data' => $orders->items(),
@@ -72,6 +120,7 @@ class OrderController extends Controller
                 'total' => $orders->total(),
                 'links' => $orders->linkCollection()->toArray(),
             ],
+            'statusCounts' => $statusCounts,
             'filters' => $request->only(['status', 'delivery_type', 'bulk_orders'])
         ]);
     }
@@ -134,8 +183,9 @@ class OrderController extends Controller
             }
         }
 
-        // Get active payment settings
+        // Get active non-cash payment settings (QR / electronic methods)
         $paymentSettings = PaymentSetting::active()
+            ->where('payment_method', '!=', 'cash')
             ->ordered()
             ->get()
             ->map(function ($setting) {
@@ -177,6 +227,16 @@ class OrderController extends Controller
             \Log::error('❌ No cart items provided');
             return redirect()->back()->withErrors(['cart' => 'No items in cart'])->withInput();
         }
+
+        // Basic customer validation (keep it simple but strict on phone number)
+        $request->validate([
+            'customer_name' => ['required', 'string', 'max:255'],
+            'customer_phone' => ['required', 'digits:11'],
+        ], [
+            'customer_name.required' => 'Customer name is required.',
+            'customer_phone.required' => 'Phone number is required.',
+            'customer_phone.digits' => 'Phone number must be exactly 11 digits.',
+        ]);
 
         // Test database connection
         try {
@@ -273,6 +333,21 @@ class OrderController extends Controller
                 'requested' => $requestedPaymentMethod,
                 'normalized' => $normalizedPaymentMethod
             ]);
+
+            // For QR / non-cash payments, require a payment reference code
+            if ($normalizedPaymentMethod === Order::PAYMENT_QR && !$request->filled('payment_reference')) {
+                return redirect()->back()
+                    ->withErrors(['payment_reference' => 'Payment reference is required for QR payments.'])
+                    ->withInput();
+            }
+
+            // Determine senior discount (5%) based on cart total
+            $isSenior = $request->boolean('is_senior_citizen') || $request->boolean('is_senior_discount');
+            $seniorDiscountAmount = 0;
+            if ($isSenior && $total > 0) {
+                $seniorDiscountRate = 0.05; // 5% discount to match checkout
+                $seniorDiscountAmount = round($total * $seniorDiscountRate, 2);
+            }
             
             // Create order with calculated total + OPTIONAL payment proof
             // ONLY use fields that DEFINITELY exist in production database
@@ -282,17 +357,26 @@ class OrderController extends Controller
                 'customer_phone' => $request->input('customer_phone', '09123456789'),
                 'customer_email' => $request->input('customer_email'),
                 'status' => Order::STATUS_PENDING,
-                'total_amount' => $total > 0 ? $total : 100.00, // Production DB has 'total_amount'
+                'total_amount' => $total > 0 ? max($total - $seniorDiscountAmount, 0) : 100.00, // Store final amount after discount
                 'pickup_or_delivery' => $request->input('pickup_or_delivery', 'pickup'),
                 'payment_method' => $normalizedPaymentMethod,
                 'payment_status' => Order::PAYMENT_STATUS_PENDING,
                 'notes' => $request->input('notes', ''),
-                // Only include delivery_address (single field) - safe to assume it exists
+                // Delivery fields
                 'delivery_address' => $request->input('delivery_address'),
-                // REMOVED all other fields that may not exist in production DB:
-                // - delivery_barangay, delivery_city, delivery_instructions 
-                // - is_senior_citizen, is_bulk_order
+                'delivery_barangay' => $request->input('delivery_barangay'),
+                'delivery_city' => $request->input('delivery_city'),
+                'delivery_instructions' => $request->input('delivery_instructions'),
+                // Senior discount fields (if applicable)
+                'is_senior_discount' => $isSenior,
+                'discount_type' => $isSenior ? Order::DISCOUNT_SENIOR_CITIZEN : null,
+                'discount_amount' => $seniorDiscountAmount,
             ];
+
+            // Optional payment reference (for QR / bank payments)
+            if ($request->filled('payment_reference')) {
+                $orderData['payment_reference'] = $request->input('payment_reference');
+            }
             
             // DEBUG: Log order data BEFORE creating order
             \Log::info('🔍 ORDER DATA BEFORE CREATE', [
@@ -343,7 +427,7 @@ class OrderController extends Controller
                 throw $dbError; // Re-throw to see full error
             }
             
-            // Create order items for demo purposes
+            // Create order items
             foreach ($processedItems as $item) {
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -354,6 +438,20 @@ class OrderController extends Controller
             }
             
             \Log::info('✅ Order items created', ['count' => count($processedItems)]);
+
+            // Reserve stock for each item in the order so inventory is reflected immediately
+            foreach ($processedItems as $item) {
+                $product = Product::find($item['product_id']);
+                if ($product && $product->track_stock) {
+                    $reserved = $product->reserveStock($item['quantity']);
+                    \Log::info('📦 Stock reservation', [
+                        'product_id' => $product->id,
+                        'quantity' => $item['quantity'],
+                        'success' => $reserved,
+                        'available_before' => $product->getAvailableStock(),
+                    ]);
+                }
+            }
             
             // Direct URL redirect (exactly like ultra-simple route)
             return redirect('/order-confirmation/' . $order->id)->with('success', 'Order created successfully!');
@@ -463,15 +561,17 @@ class OrderController extends Controller
     }
 
     /**
-     * Update order status (Admin only)
+     * Update order status (Admin only) - Phase 5 workflow
      */
     public function updateStatus(Request $request, Order $order)
     {
+        // Status values must match what the database CHECK/enum allows
         $validated = $request->validate([
-            'status' => 'required|in:pending,awaiting_payment,payment_submitted,payment_approved,payment_rejected,confirmed,preparing,ready,ready_for_pickup,ready_for_delivery,completed,cancelled'
+            'status' => 'required|in:pending,awaiting_payment,payment_submitted,payment_approved,payment_rejected,confirmed,preparing,ready,ready_for_pickup,ready_for_delivery,completed,cancelled,returned'
         ]);
 
         $newStatus = $validated['status'];
+        $oldStatus = $order->status;
 
         // Validate status transition
         if (!$order->canTransitionTo($newStatus)) {
@@ -624,12 +724,119 @@ class OrderController extends Controller
                     }
                     break;
 
+                case Order::STATUS_APPROVED:
+                    // Phase 5: Payment approved, order ready to prepare
+                    // Ensure stock is deducted when an order is approved via status update
+                    foreach ($order->orderItems as $orderItem) {
+                        $product = Product::lockForUpdate()->find($orderItem->product_id);
+                        if ($product && $product->track_stock) {
+                            if (!$product->deductStock($orderItem->quantity)) {
+                                throw new \Exception("Insufficient stock for {$product->name}");
+                            }
+                        }
+                    }
+
+                    $order->update([
+                        'status' => $newStatus,
+                        'payment_status' => Order::PAYMENT_STATUS_APPROVED,
+                        'payment_approved_at' => now(),
+                        'payment_approved_by' => auth()->id(),
+                    ]);
+                    
+                    $message = "Great news! Your payment has been approved. Your order will be prepared shortly.";
+                    
+                    // Create notification
+                    if ($order->user_id) {
+                        Notification::createPaymentNotification(
+                            $order,
+                            'Payment Approved',
+                            "Your payment for order #{$order->id} has been approved!"
+                        );
+                    }
+                    
+                    // Send email
+                    if ($order->customer_email) {
+                        Mail::to($order->customer_email)->send(new PaymentApproved($order));
+                    }
+                    break;
+
+                case Order::STATUS_REJECTED:
+                    // Phase 5: Payment rejected (terminal state)
+                    // Release reserved stock
+                    foreach ($order->orderItems as $orderItem) {
+                        $product = Product::lockForUpdate()->find($orderItem->product_id);
+                        if ($product && $product->track_stock) {
+                            $product->releaseStock($orderItem->quantity);
+                        }
+                    }
+                    
+                    $order->update([
+                        'status' => $newStatus,
+                        'payment_status' => Order::PAYMENT_STATUS_REJECTED,
+                    ]);
+                    
+                    // Create notification
+                    if ($order->user_id) {
+                        Notification::createPaymentNotification(
+                            $order,
+                            'Payment Rejected',
+                            "Your payment for order #{$order->id} has been rejected."
+                        );
+                    }
+                    break;
+
+                case Order::STATUS_RETURNED:
+                    // Phase 5: Order returned by customer
+                    // Restore stock
+                    foreach ($order->orderItems as $orderItem) {
+                        $product = Product::lockForUpdate()->find($orderItem->product_id);
+                        if ($product && $product->track_stock) {
+                            $product->increment('stock_quantity', $orderItem->quantity);
+                        }
+                    }
+                    
+                    // For SQLite, the CHECK constraint on status may not allow
+                    // the literal 'returned' value. Use a DB-safe status while
+                    // marking the order as returned via a separate flag.
+                    $driver = DB::getDriverName();
+                    $statusToStore = $driver === 'sqlite'
+                        ? Order::STATUS_CANCELLED
+                        : Order::STATUS_RETURNED;
+
+                    $order->update([
+                        'status' => $statusToStore,
+                        'is_returned' => true,
+                    ]);
+                    
+                    $message = "Your order return has been processed. Thank you for your feedback.";
+                    
+                    // Create notification
+                    if ($order->user_id) {
+                        Notification::createPaymentNotification(
+                            $order,
+                            'Order Returned',
+                            "Your order #{$order->id} return has been processed."
+                        );
+                    }
+                    
+                    // Send email
+                    if ($order->customer_email) {
+                        Mail::to($order->customer_email)->send(new OrderStatusUpdated($order, $message));
+                    }
+                    break;
+
                 default:
                     $order->update(['status' => $newStatus]);
                     break;
             }
 
             DB::commit();
+
+            ActivityLogger::log(
+                'order_status_updated',
+                "Updated order #{$order->id} status from {$oldStatus} to {$newStatus}",
+                $order
+            );
 
             return redirect()->back()
                 ->with('success', 'Order status updated successfully!');
@@ -676,7 +883,8 @@ class OrderController extends Controller
 
             $order->update([
                 'payment_status' => Order::PAYMENT_STATUS_APPROVED,
-                'status' => Order::STATUS_CONFIRMED, // Move to confirmed after payment approval
+                // Phase 5: move order into the "Approved" status stage
+                'status' => Order::STATUS_APPROVED,
                 'payment_approved_at' => now(),
                 'payment_approved_by' => auth()->id(),
                 'payment_rejection_reason' => null,
@@ -692,6 +900,12 @@ class OrderController extends Controller
             }
 
             DB::commit();
+
+            ActivityLogger::log(
+                'order_payment_approved',
+                "Approved payment for order #{$order->id}",
+                $order
+            );
 
             // Send payment approved email
             try {
@@ -744,7 +958,9 @@ class OrderController extends Controller
 
             $order->update([
                 'payment_status' => Order::PAYMENT_STATUS_REJECTED,
-                'status' => Order::STATUS_CANCELLED, // Cancel order after payment rejection
+                // Phase 5: move order into the dedicated Rejected status stage
+                // so it appears under the Rejected tab and uses the correct badge
+                'status' => Order::STATUS_REJECTED,
                 'payment_rejection_reason' => $validated['rejection_reason'],
                 'payment_approved_at' => null,
                 'payment_approved_by' => null,
@@ -760,6 +976,12 @@ class OrderController extends Controller
             }
 
             DB::commit();
+
+            ActivityLogger::log(
+                'order_payment_rejected',
+                "Rejected payment for order #{$order->id} (Reason: {$validated['rejection_reason']})",
+                $order
+            );
 
             // Send payment rejected email
             try {
@@ -955,7 +1177,19 @@ class OrderController extends Controller
     }
 
     /**
-     * Generate PDF invoice for an order
+     * Show printable invoice in browser for an order.
+     * Used for "Issue Receipt" so the browser print dialog can be used.
+     */
+    public function showInvoice(Order $order)
+    {
+        // Load relationships
+        $order->load(['user', 'orderItems.product']);
+
+        return view('invoices.order', compact('order'));
+    }
+
+    /**
+     * Generate PDF invoice for an order (download).
      */
     public function generateInvoice(Order $order)
     {

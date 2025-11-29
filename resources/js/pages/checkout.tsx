@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { QrCode, Upload, CreditCard, Truck, MapPin, Calendar, Phone, Mail, User, FileImage } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+const route = (window as any).route || ((name: string) => name);
 
 interface CartItem {
     product: {
@@ -372,21 +373,23 @@ export default function Checkout({ cartItems, total }: CheckoutProps) {
                                             <div>
                                                 <Label htmlFor="customer-phone" className="flex items-center gap-2">
                                                     <Phone className="h-4 w-4" />
-                                                    Phone Number *
+                                                    Phone Number (11 digits) *
                                                 </Label>
                                                 <Input
                                                     id="customer-phone"
                                                     type="tel"
+                                                    inputMode="numeric"
+                                                    maxLength={11}
                                                     value={data.customer_phone}
                                                     onChange={(e) => {
-                                                        // Only allow numbers, +, -, (, ), and spaces
-                                                        const value = e.target.value.replace(/[^0-9+\-() ]/g, '');
+                                                        // Allow digits only, limit to 11
+                                                        const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
                                                         setData('customer_phone', value);
                                                     }}
-                                                    placeholder="09XX XXX XXXX"
+                                                    placeholder="09XXXXXXXXX"
                                                     className="mt-1"
-                                                    pattern="[\+]?[0-9\s\-\(\)]+"
-                                                    title="Please enter a valid phone number (numbers, spaces, +, -, (, ) only)"
+                                                    pattern="[0-9]{11}"
+                                                    title="Phone number must be exactly 11 digits."
                                                 />
                                                 {errors.customer_phone && (
                                                     <p className="text-red-500 text-sm mt-1">{errors.customer_phone}</p>

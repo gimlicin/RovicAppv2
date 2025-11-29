@@ -49,9 +49,12 @@ interface PaginationData {
 interface Props {
   products: PaginationData;
   stats: Stats;
+  filters?: {
+    stock_filter?: string;
+  };
 }
 
-function ProductsIndex({ products, stats }: Props) {
+function ProductsIndex({ products, stats, filters }: Props) {
   const [stockAdjustModal, setStockAdjustModal] = useState<{ product: Product | null; isOpen: boolean }>({
     product: null,
     isOpen: false
@@ -61,6 +64,8 @@ function ProductsIndex({ products, stats }: Props) {
     quantity: 0,
     reason: ''
   });
+
+  const activeStockFilter = filters?.stock_filter || 'all';
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -86,6 +91,18 @@ function ProductsIndex({ products, stats }: Props) {
   const getAvailableStock = (product: Product) => {
     const reserved = product.reserved_stock || 0;
     return Math.max(0, product.stock_quantity - reserved);
+  };
+
+  const handleStockFilterChange = (value: string) => {
+    const params: Record<string, any> = {};
+    if (value && value !== 'all') {
+      params.stock_filter = value;
+    }
+
+    router.get('/admin/products', params, {
+      preserveState: true,
+      preserveScroll: true,
+    });
   };
 
   const toggleBestSelling = (productId: number) => {
@@ -198,9 +215,34 @@ function ProductsIndex({ products, stats }: Props) {
 
         {/* Products Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>All Products</CardTitle>
-            <CardDescription>Manage your product inventory</CardDescription>
+          <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <CardTitle>All Products</CardTitle>
+              <CardDescription>Manage your product inventory</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={activeStockFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleStockFilterChange('all')}
+              >
+                All
+              </Button>
+              <Button
+                variant={activeStockFilter === 'in_stock' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleStockFilterChange('in_stock')}
+              >
+                On Stock
+              </Button>
+              <Button
+                variant={activeStockFilter === 'low_stock' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleStockFilterChange('low_stock')}
+              >
+                Low Stock
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>

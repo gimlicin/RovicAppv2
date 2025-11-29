@@ -83,6 +83,9 @@ export default function Register() {
                             disabled={processing}
                             placeholder="Password"
                         />
+                        <p className="text-xs text-muted-foreground">
+                            Minimum 8 characters with uppercase, lowercase, and numbers
+                        </p>
                         <InputError message={errors.password} />
                     </div>
 

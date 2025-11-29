@@ -45,6 +45,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import NotificationSidebar from "./NotificationSidebar";
 import SearchBar from "./SearchBar";
+const route = (window as any).route || ((name: string) => name);
 
 // ShopHeader component with integrated cart functionality
 
@@ -149,8 +150,8 @@ export default function ShopHeader() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   
-                  {/* Admin-specific menu items */}
-                  {auth.user.role === 'admin' && (
+                  {/* Admin & Super Admin quick links */}
+                  {(auth.user.role === 'admin' || auth.user.role === 'super_admin') && (
                     <>
                       <DropdownMenuItem asChild>
                         <Link href={route('admin.dashboard')} className="flex items-center">

@@ -33,10 +33,17 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Redirect based on user role
         $user = Auth::user();
-        
-        if ($user->isAdmin()) {
+
+        // Check if email is verified
+        if (!$user->hasVerifiedEmail()) {
+            return redirect()->route('verification.notice');
+        }
+
+        // Redirect based on user role
+        if ($user->isSuperAdmin()) {
+            return redirect()->intended(route('dashboard', absolute: false));
+        } elseif ($user->isAdmin()) {
             return redirect()->intended(route('dashboard', absolute: false));
         } else {
             return redirect()->intended(route('home', absolute: false));

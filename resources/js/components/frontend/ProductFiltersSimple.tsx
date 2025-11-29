@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -36,8 +36,8 @@ export default function ProductFiltersSimple({
 }: ProductFiltersProps) {
   // Local state for filter values
   const [selectedCategory, setSelectedCategory] = useState<string>(filters?.category_id || '');
-  const [minPrice, setMinPrice] = useState(filters?.min_price || '');
-  const [maxPrice, setMaxPrice] = useState(filters?.max_price || '');
+  const minPriceRef = useRef<HTMLInputElement | null>(null);
+  const maxPriceRef = useRef<HTMLInputElement | null>(null);
   const [inStock, setInStock] = useState(filters?.in_stock || false);
   const [sortBy, setSortBy] = useState(filters?.sort || '');
   
@@ -46,11 +46,13 @@ export default function ProductFiltersSimple({
   const [isPriceOpen, setIsPriceOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // Count active filters
+  const sanitizeNumericInput = (value: string) => value.replace(/[^0-9]/g, '');
+
+  // Count active filters (based on applied filters from props)
   const activeFiltersCount = [
     selectedCategory,
-    minPrice,
-    maxPrice,
+    filters?.min_price,
+    filters?.max_price,
     inStock,
     sortBy,
   ].filter(Boolean).length;
@@ -66,13 +68,18 @@ export default function ProductFiltersSimple({
     if (selectedCategory) {
       params.set('category_id', selectedCategory);
     }
-    
-    if (minPrice) {
-      params.set('min_price', minPrice);
+
+    const rawMin = minPriceRef.current?.value || '';
+    const rawMax = maxPriceRef.current?.value || '';
+    const numericMin = sanitizeNumericInput(rawMin);
+    const numericMax = sanitizeNumericInput(rawMax);
+
+    if (numericMin) {
+      params.set('min_price', numericMin);
     }
     
-    if (maxPrice) {
-      params.set('max_price', maxPrice);
+    if (numericMax) {
+      params.set('max_price', numericMax);
     }
 
     if (inStock) {
@@ -94,8 +101,6 @@ export default function ProductFiltersSimple({
   // Clear all filters
   const clearFilters = () => {
     setSelectedCategory('');
-    setMinPrice('');
-    setMaxPrice('');
     setInStock(false);
     setSortBy('');
 
@@ -233,10 +238,11 @@ export default function ProductFiltersSimple({
               <div className="flex-1">
                 <label className="block text-xs text-gray-600 mb-1">Min</label>
                 <input
-                  type="number"
+                  ref={minPriceRef}
+                  type="text"
+                  inputMode="numeric"
                   placeholder="0"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
+                  defaultValue={filters?.min_price || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
@@ -244,10 +250,11 @@ export default function ProductFiltersSimple({
               <div className="flex-1">
                 <label className="block text-xs text-gray-600 mb-1">Max</label>
                 <input
-                  type="number"
+                  ref={maxPriceRef}
+                  type="text"
+                  inputMode="numeric"
                   placeholder={String(priceRange.max)}
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
+                  defaultValue={filters?.max_price || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
@@ -286,7 +293,7 @@ export default function ProductFiltersSimple({
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block w-64 flex-shrink-0">
+      <div className="hidden lg:block w-64 shrink-0">
         <div className="sticky top-24 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
           <FilterContent />
         </div>

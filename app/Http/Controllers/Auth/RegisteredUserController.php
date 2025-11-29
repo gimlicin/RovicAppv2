@@ -33,7 +33,15 @@ class RegisteredUserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => [
+                'required', 
+                'confirmed', 
+                Rules\Password::min(8)
+                    ->letters()
+                    ->numbers()
+                    ->mixedCase()
+                    ->uncompromised()
+            ],
         ]);
 
         $user = User::create([
@@ -43,15 +51,14 @@ class RegisteredUserController extends Controller
             'role' => User::ROLE_CUSTOMER, // Default role for new registrations
         ]);
 
+        // Fire the Registered event - this sends the verification email
         event(new Registered($user));
 
+        // Log the user in
         Auth::login($user);
 
-        // Redirect based on user role
-        if ($user->isAdmin()) {
-            return redirect()->intended(route('dashboard', absolute: false));
-        } else {
-            return redirect()->intended(route('home', absolute: false));
-        }
+        // Redirect to email verification notice
+        // User must verify email before accessing the system
+        return redirect()->route('verification.notice');
     }
 }
