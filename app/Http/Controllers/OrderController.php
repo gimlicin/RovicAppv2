@@ -228,14 +228,16 @@ class OrderController extends Controller
             return redirect()->back()->withErrors(['cart' => 'No items in cart'])->withInput();
         }
 
-        // Basic customer validation (keep it simple but strict on phone number)
+        // Basic customer validation (keep it simple but strict on phone number and delivery address)
         $request->validate([
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_phone' => ['required', 'digits:11'],
+            'delivery_address' => ['required_if:pickup_or_delivery,delivery', 'string', 'max:1000'],
         ], [
             'customer_name.required' => 'Customer name is required.',
             'customer_phone.required' => 'Phone number is required.',
             'customer_phone.digits' => 'Phone number must be exactly 11 digits.',
+            'delivery_address.required_if' => 'Delivery address is required for home delivery.',
         ]);
 
         // Test database connection

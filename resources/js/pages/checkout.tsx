@@ -492,7 +492,8 @@ export default function Checkout({ cartItems, total }: CheckoutProps) {
                                             processing ||
                                             (paymentMethod === 'qr' && !paymentProof) ||
                                             !data.customer_name.trim() ||
-                                            data.customer_phone.length !== 11
+                                            data.customer_phone.length !== 11 ||
+                                            (data.pickup_or_delivery === 'delivery' && !data.delivery_address.trim())
                                         }
                                         className="px-8"
                                     >
