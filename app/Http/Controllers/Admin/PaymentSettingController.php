@@ -55,31 +55,44 @@ class PaymentSettingController extends Controller
         // Handle QR code upload to Cloudinary
         $qrCodeUrl = null;
         if ($request->hasFile('qr_code')) {
-            try {
-                // Upload to Cloudinary
-                $cloudinary = new CloudinaryAPI([
-                    'cloud' => [
-                        'cloud_name' => config('cloudinary.cloud_name'),
-                        'api_key' => config('cloudinary.api_key'),
-                        'api_secret' => config('cloudinary.api_secret'),
-                    ],
-                ]);
-                
-                $uploadResult = $cloudinary->upload($request->file('qr_code')->getRealPath(), [
-                    'folder' => 'rovic_meatshop/qr_codes',
-                    'transformation' => [
-                        'quality' => 'auto',
-                        'fetch_format' => 'auto',
-                    ],
-                ]);
-                
-                $qrCodeUrl = $uploadResult['secure_url'];
-                error_log('✅ QR Code uploaded to Cloudinary: ' . $qrCodeUrl);
-            } catch (\Exception $e) {
-                error_log('❌ Cloudinary upload failed for QR code: ' . $e->getMessage());
-                
+            $file = $request->file('qr_code');
+
+            // Upload to Cloudinary
+            if (
+                class_exists(CloudinaryAPI::class) &&
+                config('cloudinary.cloud_name') &&
+                config('cloudinary.api_key') &&
+                config('cloudinary.api_secret')
+            ) {
+                try {
+                    $cloudinary = new CloudinaryAPI([
+                        'cloud' => [
+                            'cloud_name' => config('cloudinary.cloud_name'),
+                            'api_key' => config('cloudinary.api_key'),
+                            'api_secret' => config('cloudinary.api_secret'),
+                        ],
+                    ]);
+
+                    $uploadResult = $cloudinary->upload($file->getRealPath(), [
+                        'folder' => 'rovic_meatshop/qr_codes',
+                        'transformation' => [
+                            'quality' => 'auto',
+                            'fetch_format' => 'auto',
+                        ],
+                    ]);
+
+                    if (isset($uploadResult['secure_url'])) {
+                        $qrCodeUrl = $uploadResult['secure_url'];
+                        error_log('✅ QR Code uploaded to Cloudinary: ' . $qrCodeUrl);
+                    }
+                } catch (\Throwable $e) {
+                    error_log('❌ Cloudinary upload failed for QR code: ' . $e->getMessage());
+                }
+            }
+
+            if (!$qrCodeUrl) {
                 // Fallback to local storage
-                $qrCodePath = $request->file('qr_code')->store('qr_codes', 'public');
+                $qrCodePath = $file->store('qr_codes', 'public');
                 $qrCodeUrl = Storage::url($qrCodePath);
                 error_log('⚠️ QR Code stored locally as fallback: ' . $qrCodeUrl);
             }
@@ -123,39 +136,52 @@ class PaymentSettingController extends Controller
         $qrCodeUrl = $paymentSetting->qr_code_path; // Keep existing URL by default
         
         if ($request->hasFile('qr_code')) {
-            try {
-                // Upload new QR code to Cloudinary
-                $cloudinary = new CloudinaryAPI([
-                    'cloud' => [
-                        'cloud_name' => config('cloudinary.cloud_name'),
-                        'api_key' => config('cloudinary.api_key'),
-                        'api_secret' => config('cloudinary.api_secret'),
-                    ],
-                ]);
-                
-                $uploadResult = $cloudinary->upload($request->file('qr_code')->getRealPath(), [
-                    'folder' => 'rovic_meatshop/qr_codes',
-                    'transformation' => [
-                        'quality' => 'auto',
-                        'fetch_format' => 'auto',
-                    ],
-                ]);
-                
-                $qrCodeUrl = $uploadResult['secure_url'];
-                error_log('✅ QR Code updated on Cloudinary: ' . $qrCodeUrl);
-                
-                // Note: Old Cloudinary image will remain but that's okay
-                // Cloudinary has storage management tools to clean up unused images
-            } catch (\Exception $e) {
-                error_log('❌ Cloudinary upload failed for QR code update: ' . $e->getMessage());
-                
+            $file = $request->file('qr_code');
+
+            if (
+                class_exists(CloudinaryAPI::class) &&
+                config('cloudinary.cloud_name') &&
+                config('cloudinary.api_key') &&
+                config('cloudinary.api_secret')
+            ) {
+                try {
+                    // Upload new QR code to Cloudinary
+                    $cloudinary = new CloudinaryAPI([
+                        'cloud' => [
+                            'cloud_name' => config('cloudinary.cloud_name'),
+                            'api_key' => config('cloudinary.api_key'),
+                            'api_secret' => config('cloudinary.api_secret'),
+                        ],
+                    ]);
+                    
+                    $uploadResult = $cloudinary->upload($file->getRealPath(), [
+                        'folder' => 'rovic_meatshop/qr_codes',
+                        'transformation' => [
+                            'quality' => 'auto',
+                            'fetch_format' => 'auto',
+                        ],
+                    ]);
+                    
+                    if (isset($uploadResult['secure_url'])) {
+                        $qrCodeUrl = $uploadResult['secure_url'];
+                        error_log('✅ QR Code updated on Cloudinary: ' . $qrCodeUrl);
+                    }
+                    
+                    // Note: Old Cloudinary image will remain but that's okay
+                    // Cloudinary has storage management tools to clean up unused images
+                } catch (\Throwable $e) {
+                    error_log('❌ Cloudinary upload failed for QR code update: ' . $e->getMessage());
+                }
+            }
+
+            if (!$qrCodeUrl || $qrCodeUrl === $paymentSetting->qr_code_path) {
                 // Fallback to local storage
                 // Delete old local file if exists
                 if ($paymentSetting->qr_code_path && Storage::disk('public')->exists($paymentSetting->qr_code_path)) {
                     Storage::disk('public')->delete($paymentSetting->qr_code_path);
                 }
                 
-                $qrCodePath = $request->file('qr_code')->store('qr_codes', 'public');
+                $qrCodePath = $file->store('qr_codes', 'public');
                 $qrCodeUrl = Storage::url($qrCodePath);
                 error_log('⚠️ QR Code stored locally as fallback: ' . $qrCodeUrl);
             }
